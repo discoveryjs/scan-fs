@@ -11,7 +11,7 @@ Is a part of [Discovery.js](https://github.com/discoveryjs) projects.
 
 - [How to use](#how-to-use)
 - [API](#api)
-    - [scanFs(options): Promise.<Array.<File>>](#scanfsoptions-promisearrayfile)
+    - [scanFs(options): Promise.<Array.\<File>>](#scanfsoptions-promisearray\file)
     - [scanFs.normalizeOptions(options: Object): Object](#scanfsnormalizeoptionsoptions-object-object)
 - [Examples](#examples)
 - [License](#license)
@@ -38,7 +38,7 @@ scanFs({ /* options */ }).then(files => {
 
 ## API
 
-### scanFs(options): Promise.<Array.<File>>
+### scanFs(options): Promise.<Array.\<File>>
 
 Main method that returns a promise which resolves in a files list. Files list is an array of File instances. Beside that it has additional fields:
 
