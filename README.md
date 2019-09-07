@@ -34,21 +34,21 @@ Main method that returns a promise which resolves in a files list. Files list is
 
 `options` is an object with fields (all are optional):
 
-- basedir
+- **basedir**
 
   Type: `String`  
   Default: `process.cwd()`
 
   Base directory to scan.
 
-- include
+- **include**
 
   Type: `String`, `Array.<String>` or `null`  
   Default: `null`
 
   A list of directories relative to `basedir`. When used, a scanned file path must starts with one of an directories in the list. It's like a white list of paths. In case when the same path is used in `include` and `exclude`, `include` has priority over `exclude` (i.e. `include` wins).
 
-- exclude
+- **exclude**
 
   Type: `String`, `Array.<String>` or `null`  
   Default: `null`
@@ -57,14 +57,14 @@ Main method that returns a promise which resolves in a files list. Files list is
 
   > NOTE: `.git` and `node_modules` paths are including to `exclude` implicitly. To include them into scan just add required paths in `include`.
 
-- rules
+- **rules**
 
   Type: `Rule` or `Array.<Rule>`  
   Default: `[{}]`
 
   Rules define which files should be added to a result and how to process them. When not set no any file will be matched. A first rule that can be applied wins, so other rules are ignoring.
 
-- onError
+- **onError**
 
   Type: `function(error)` or `null`  
   Default: `error => console.error('...', error)`
@@ -73,28 +73,28 @@ Main method that returns a promise which resolves in a files list. Files list is
 
 A **rule** is an object with following fields (all are optional):
 
-- test
+- **test**
 
   Type: `RegExp`, `Array.<RegExp>` or `null`  
   Default: `null`
 
   A list of RegExps that applies to relative to `options.basedir` path of file.
 
-- include
+- **include**
 
   Type: `String`, `Array.<String>` or `null`  
   Default: `null`
 
   The same as for `options.include` but applies on a rule level. When used it also populates `options.include`.
 
-- exclude
+- **exclude**
 
   Type: `String`, `Array.<String>` or `null`  
   Default: `null`
 
   The same as for `options.exclude` but applies on a rule level.
 
-- extract
+- **extract**
 
   Type: `function(file, content, context)` or `Array.<function(file, content, context)>`  
   Default: `[]`
@@ -107,7 +107,7 @@ A **rule** is an object with following fields (all are optional):
     - `stats` – `fs.stats()` result object for processing file
     - `rule` – a normalized rule config that applied
 
-- only
+- **only**
 
   Type: `Boolean`  
   Default: `false`
