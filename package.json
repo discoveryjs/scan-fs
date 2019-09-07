@@ -1,0 +1,32 @@
+{
+     "name": "@discoveryjs/scan-fs",
+     "version": "0.0.0",
+     "description": "An utility for a file system scan for seeking files and optionaly process their content",
+     "keywords": [
+          "fs",
+          "files",
+          "scan",
+          "preprocessing",
+          "rules"
+     ],
+     "author": "Roman Dvornov <rdvornov@gmail.com>",
+     "license": "MIT",
+     "homepage": "https://github.com/discoveryjs/fs#readme",
+     "repository": {
+          "type": "git",
+          "url": "git+https://github.com/discoveryjs/fs.git"
+     },
+     "bugs": {
+          "url": "https://github.com/discoveryjs/fs/issues"
+     },
+     "main": "index.js",
+     "scripts": {
+          "lint": "eslint index.js"
+     },
+     "devDependencies": {
+          "eslint": "^6.3.0"
+     },
+     "files": [
+          "index.js"
+     ]
+}
