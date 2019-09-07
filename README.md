@@ -3,7 +3,20 @@
 [![NPM version](https://img.shields.io/npm/v/@discoveryjs/scan-fs.svg)](https://www.npmjs.com/package/@discoveryjs/scan-fs)
 [![Twitter](https://img.shields.io/badge/Twitter-@js_discovery-blue.svg)](https://twitter.com/js_discovery)
 
-An utility for seeking files by file system scanning and optionally populating file info with processing their content. Is a part of [Discovery.js](https://github.com/discoveryjs) projects.
+An utility for seeking files by file system scanning and optionally populating file info with processing their content. It's like a Webpack's loaders but for extracting data from a FS and files.
+
+Is a part of [Discovery.js](https://github.com/discoveryjs) projects.
+
+<!-- TOC depthFrom:2 -->
+
+- [How to use](#how-to-use)
+- [API](#api)
+    - [scanFs(options): Promise.<Array.<File>>](#scanfsoptions-promisearrayfile)
+    - [scanFs.normalizeOptions(options: Object): Object](#scanfsnormalizeoptionsoptions-object-object)
+- [Examples](#examples)
+- [License](#license)
+
+<!-- /TOC -->
 
 ## How to use
 
@@ -114,7 +127,7 @@ A **rule** is an object with following fields (all are optional):
 
   When `only` is true only single rule applies. If several rules have truthy value for `only`, then first rule wins. The option is useful for debugging.
 
-## scanFs.normalizeOptions(options: Object): Object
+### scanFs.normalizeOptions(options: Object): Object
 
 This method is used internally to normalize options, which is reducing checking and potential errors during a FS scan. The method can be useful to understand how `scanFs()` transforms passed options.
 
