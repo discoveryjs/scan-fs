@@ -11,7 +11,7 @@ Is a part of [Discovery.js](https://github.com/discoveryjs) projects.
 
 - [How to use](#how-to-use)
 - [API](#api)
-    - [scanFs(options): Promise.<Array.\<File>>](#scanfsoptions-promisearray\file)
+    - [scanFs(options): Promise.<Array.\<File>>](#scanfsoptions-promisearrayfile)
     - [scanFs.normalizeOptions(options: Object): Object](#scanfsnormalizeoptionsoptions-object-object)
 - [Examples](#examples)
 - [License](#license)
