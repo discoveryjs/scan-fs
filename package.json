@@ -1,7 +1,7 @@
 {
      "name": "@discoveryjs/scan-fs",
      "version": "0.0.0",
-     "description": "An utility for a file system scan for seeking files and optionaly process their content",
+     "description": "An utility for seeking files by file system scanning and optionally populating file info with processing their content",
      "keywords": [
           "fs",
           "files",

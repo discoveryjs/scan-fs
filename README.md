@@ -1,6 +1,9 @@
-# scan-fs
+# @discoveryjs/scan-fs
 
-An utility for a file system scan for seeking files and optionaly process their content.
+[![NPM version](https://img.shields.io/npm/v/@discoveryjs/scan-fs.svg)](https://www.npmjs.com/package/@discoveryjs/scan-fs)
+[![Twitter](https://img.shields.io/badge/Twitter-@js_discovery-blue.svg)](https://twitter.com/js_discovery)
+
+An utility for seeking files by file system scanning and optionally populating file info with processing their content. Is a part of [Discovery.js](https://github.com/discoveryjs) projects.
 
 ## How to use
 
