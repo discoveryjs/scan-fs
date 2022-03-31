@@ -1,14 +1,9 @@
-const fs = require('fs');
+const fsPromise = require('fs/promises');
 const path = require('path');
-const { promisify } = require('util');
-const readdirPromise = promisify(fs.readdir);
-const readFilePromise = promisify(fs.readFile);
-const statPromise = promisify(fs.stat);
 
 class File {
-    constructor(filename, size) {
-        this.filename = filename;
-        this.size = size;
+    constructor(relpath) {
+        this.path = relpath;
         this.errors = undefined;
     }
 
@@ -45,7 +40,7 @@ function isFunction(value) {
 }
 
 function normalizeOptions(options) {
-    const basedir = options.basedir || process.cwd();
+    const basedir = path.resolve(options.basedir || process.cwd());
     const generalInclude = new Set(
         ensureArray(options.include)
             .map(dir => path.resolve(basedir, dir))
@@ -72,7 +67,7 @@ function normalizeOptions(options) {
                 let extract = null;
 
                 if (rule.test) {
-                    test = Object.freeze(ensureArray(rule.test));
+                    test = ensureArray(rule.test).slice();
 
                     if (!test.every(isRegExp)) {
                         throw new Error('rule.test should be a RegExp or array of RegExp');
@@ -86,21 +81,19 @@ function normalizeOptions(options) {
                         throw new Error('rule.include should be a string or array of strings');
                     }
 
-                    include = Object.freeze(
-                        include.map(dir => {
-                            dir = path.resolve(basedir, dir);
+                    include = include.map(dir => {
+                        dir = path.resolve(basedir, dir);
 
-                            let cursor = dir;
-                            while (cursor !== basedir) {
-                                // FIXME: include should be added only for rules
-                                // with such includes not all the rules
-                                generalInclude.add(cursor);
-                                cursor = path.dirname(cursor);
-                            }
+                        let cursor = dir;
+                        while (cursor !== basedir) {
+                            // FIXME: include should be added only for rules
+                            // with such includes not all the rules
+                            generalInclude.add(cursor);
+                            cursor = path.dirname(cursor);
+                        }
 
-                            return dir;
-                        })
-                    );
+                        return dir;
+                    });
                 }
 
                 if (rule.exclude) {
@@ -110,22 +103,21 @@ function normalizeOptions(options) {
                         throw new Error('rule.exclude should be a string or array of strings');
                     }
 
-                    exclude = Object.freeze(
-                        exclude.map(dir => path.resolve(basedir, dir))
-                    );
+                    exclude = exclude.map(dir => path.resolve(basedir, dir));
                 }
 
-                extract = Object.freeze(ensureArray(rule.extract));
+                extract = ensureArray(rule.extract).slice();
                 if (!extract.every(isFunction)) {
                     throw new Error('rule.extract should be a function or array of functions');
                 }
 
-                return Object.freeze(Object.assign({}, rule, {
+                return Object.freeze({
+                    ...rule,
                     test,
                     include,
                     exclude,
                     extract
-                }));
+                });
             });
 
     // include has a priority over exclude
@@ -141,74 +133,87 @@ function normalizeOptions(options) {
 }
 
 function scanFs(options) {
-    function collect(dir) {
-        return readdirPromise(dir).then(files =>
-            Promise.all(files.map(fn => {
-                const fullpath = path.join(dir, fn);
-                const relpath = path.relative(basedir, fullpath);
-                const pathCheck = dir => fullpath === dir || fullpath.startsWith(dir + '/');
+    async function collect(dir, files = []) {
+        const tasks = [];
 
-                pathsScanned++;
+        for (const dirent of await fsPromise.readdir(dir, { withFileTypes: true })) {
+            const fullpath = path.join(dir, dirent.name);
+            const relpath = path.relative(basedir, fullpath);
+            const pathCheck = dir => fullpath === dir || fullpath.startsWith(dir + '/');
 
-                if (include && !include.some(pathCheck)) {
-                    return;
+            pathsScanned++;
+
+            if (include && !include.some(pathCheck)) {
+                continue;
+            }
+
+            if (exclude && exclude.some(pathCheck)) {
+                continue;
+            }
+
+            if (dirent.isDirectory()) {
+                tasks.push(collect(fullpath, files));
+                continue;
+            }
+
+            if (dirent.isSymbolicLink()) {
+                tasks.push(fsPromise.realpath(fullpath).then(realpath => {
+                    symlinks.push({
+                        path: relpath,
+                        realpath
+                    });
+                }));
+                continue;
+            }
+
+            filesTested++;
+
+            for (let rule of rules) {
+                if (rule.test && !rule.test.some(rx => rx.test(relpath))) {
+                    continue;
                 }
 
-                if (exclude && exclude.some(pathCheck)) {
-                    return;
+                if (rule.include && !rule.include.some(pathCheck)) {
+                    continue;
                 }
 
-                return statPromise(fullpath).then(stats => {
-                    if (stats.isDirectory()) {
-                        return collect(fullpath);
-                    }
+                if (rule.exclude && rule.exclude.some(pathCheck)) {
+                    continue;
+                }
 
-                    filesTested++;
+                const file = new File(relpath);
 
-                    for (let rule of rules) {
-                        if (rule.test && !rule.test.some(rx => rx.test(relpath))) {
-                            continue;
-                        }
+                files.push(file);
 
-                        if (rule.include && !rule.include.some(pathCheck)) {
-                            continue;
-                        }
-
-                        if (rule.exclude && rule.exclude.some(pathCheck)) {
-                            continue;
-                        }
-
-                        const file = new File(
-                            relpath,
-                            stats.size
-                        );
-
-                        result.push(file);
-
-                        if (rule.extract.length) {
-                            return readFilePromise(fullpath, 'utf8')
-                                .then(content =>
-                                    rule.extract.forEach(fn => fn(file, content, {
-                                        basedir,
-                                        stats,
-                                        rule
-                                    }))
-                                )
-                                .catch(error => {
-                                    errors.push(error);
-                                    onError(error);
+                if (rule.extract.length) {
+                    tasks.push(fsPromise.readFile(fullpath, 'utf8').then(async content => {
+                        for (const extractor of rule.extract) {
+                            try {
+                                await extractor(file, content, {
+                                    basedir,
+                                    path: fullpath,
+                                    rule
                                 });
+                            } catch (extractError) {
+                                errors.push(extractError);
+                                onError(extractError);
+                            }
                         }
-                    }
-                }).catch(() => { /* ignore errors */ });
-            }).filter(Boolean))
-        ).catch(error => {
-            errors.push(error);
-            onError(error);
-        });
+                    }).catch(error => {
+                        errors.push(error);
+                        onError(error);
+                    }));
+                }
+
+                break;
+            }
+        }
+
+        return Promise.all(tasks);
     }
 
-    const result = [];
+    const files = [];
+    const symlinks = [];
     const errors = [];
     const startTime = Date.now();
     const {
@@ -221,13 +226,15 @@ function scanFs(options) {
     let pathsScanned = 0;
     let filesTested = 0;
 
-    return collect(basedir).then(() =>
-        Object.assign(result, {
-            errors: errors,
+    return collect(basedir, files).then(() =>
+        Object.assign(files, {
+            symlinks,
+            errors,
             stat: {
                 pathsScanned,
                 filesTested,
-                filesMatched: result.length,
+                filesMatched: files.length,
+                errors: errors.length,
                 time: Date.now() - startTime
             }
         })
