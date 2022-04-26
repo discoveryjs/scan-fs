@@ -109,16 +109,13 @@ A **rule** is an object with following fields (all are optional):
 
 - **extract**
 
-  Type: `function(file, content, context)` or `Array.<function(file, content, context)>`  
+  Type: `function(file, content, rule)`  
   Default: `[]`
 
   A list of function that extract some data from a file content. Such function takes three arguments:
   - `file` – an instance of File
   - `content` – a buffer contains content of a file
-  - `meta` – object with useful context data:
-    - `basedir` – a value of `options.basedir`
-    - `stats` – `fs.stats()` result object for processing file
-    - `rule` – a normalized rule config that applied
+  - `rule` – rule object with normalized options and `basedir` (as a value of `options.basedir`)
 
 - **only**
 
