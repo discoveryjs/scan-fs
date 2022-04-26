@@ -163,6 +163,7 @@ function normalizeOptions(options) {
                 }
 
                 return Object.freeze({
+                    basedir,
                     ...rule,
                     test,
                     include,
@@ -208,10 +209,11 @@ function scanFs(options) {
                     .then(realpath => {
                         symlinks.push({
                             path: relpath,
-                            realpath
+                            realpath: path.relative(basedir, realpath)
                         });
                     })
                     .catch(error => {
+                        symlinks.push({ path: relpath, realpath: null });
                         errors.push(error = scanError('resolve-symlink', fullpath, error));
                         onError(error);
                     })
@@ -232,11 +234,7 @@ function scanFs(options) {
 
                 if (rule.extract !== null) {
                     tasks.push(fsPromise.readFile(fullpath, 'utf8')
-                        .then(content => rule.extract(file, content, {
-                            basedir,
-                            path: fullpath,
-                            rule
-                        }))
+                        .then(content => rule.extract(file, content, rule))
                         .catch(error => {
                             errors.push(error = scanError('extract', fullpath, error));
                             onError(error);
