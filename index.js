@@ -19,6 +19,20 @@ class File {
     }
 }
 
+function scanError(reason, path, error) {
+    error.reason = reason;
+    error.path = path;
+    error.toJSON = () => {
+        return {
+            reason,
+            path,
+            message: String(error)
+        };
+    };
+
+    return error;
+}
+
 function ensureArray(value, fallback) {
     if (Array.isArray(value)) {
         return value;
@@ -39,6 +53,12 @@ function isFunction(value) {
     return typeof value === 'function';
 }
 
+function composeAccept(first, second) {
+    return first
+        ? (fullpath, relpath) => first(fullpath, relpath) && second(fullpath, relpath)
+        : second;
+}
+
 function normalizeOptions(options) {
     const basedir = path.resolve(options.basedir || process.cwd());
     const generalInclude = new Set(
@@ -47,11 +67,10 @@ function normalizeOptions(options) {
     );
     const generalExclude = new Set(
         ensureArray(options.exclude)
-            .concat(['.git', 'node_modules'])
             .map(dir => path.resolve(basedir, dir))
     );
     const onError = 'onError' in options === false
-        ? err => console.error('[@discovery/scan-fs] Error:', err)
+        ? err => console.error('[@discoveryjs/scan-fs] Error:', err)
         : isFunction(options.onError)
             ? options.onError
             : () => {};
@@ -65,6 +84,7 @@ function normalizeOptions(options) {
                 let include = null;
                 let exclude = null;
                 let extract = null;
+                let accept = null;
 
                 if (rule.test) {
                     test = ensureArray(rule.test).slice();
@@ -72,6 +92,16 @@ function normalizeOptions(options) {
                     if (!test.every(isRegExp)) {
                         throw new Error('rule.test should be a RegExp or array of RegExp');
                     }
+
+                    accept = (relpath) => {
+                        for (const rx of test) {
+                            if (rx.test(relpath)) {
+                                return true;
+                            }
+                        }
+
+                        return false;
+                    };
                 }
 
                 if (rule.include) {
@@ -94,6 +124,16 @@ function normalizeOptions(options) {
 
                         return dir;
                     });
+
+                    accept = composeAccept(accept, (fullpath) => {
+                        for (const dir of include) {
+                            if (fullpath == dir || fullpath.startsWith(dir + '/')) {
+                                return true;
+                            }
+                        }
+
+                        return false;
+                    });
                 }
 
                 if (rule.exclude) {
@@ -104,11 +144,22 @@ function normalizeOptions(options) {
                     }
 
                     exclude = exclude.map(dir => path.resolve(basedir, dir));
+
+                    accept = composeAccept(accept, (fullpath) => {
+                        for (const dir of exclude) {
+                            if (fullpath === dir || fullpath.startsWith(dir + '/')) {
+                                return false;
+                            }
+                        }
+
+                        return true;
+                    });
                 }
 
-                extract = ensureArray(rule.extract).slice();
-                if (!extract.every(isFunction)) {
-                    throw new Error('rule.extract should be a function or array of functions');
+                if (typeof rule.extract === 'function') {
+                    extract = rule.extract;
+                } else if (rule.extract) {
+                    throw new Error('rule.extract should be a function');
                 }
 
                 return Object.freeze({
@@ -116,6 +167,7 @@ function normalizeOptions(options) {
                     test,
                     include,
                     exclude,
+                    accept,
                     extract
                 });
             });
@@ -125,59 +177,52 @@ function normalizeOptions(options) {
 
     return {
         basedir,
-        include: generalInclude.size ? [...generalInclude] : null,
-        exclude: generalExclude.size ? [...generalExclude] : null,
+        include: [...generalInclude],
+        exclude: [...generalExclude],
         onError,
         rules
     };
 }
 
 function scanFs(options) {
-    async function collect(dir, files = []) {
+    async function collect(basedir, absdir, reldir, files) {
         const tasks = [];
 
-        for (const dirent of await fsPromise.readdir(dir, { withFileTypes: true })) {
-            const fullpath = path.join(dir, dirent.name);
-            const relpath = path.relative(basedir, fullpath);
-            const pathCheck = dir => fullpath === dir || fullpath.startsWith(dir + '/');
+        for (const dirent of await fsPromise.readdir(absdir, { withFileTypes: true })) {
+            const relpath = reldir + dirent.name;
+            const fullpath = absdir + dirent.name;
 
             pathsScanned++;
 
-            if (include && !include.some(pathCheck)) {
-                continue;
-            }
-
-            if (exclude && exclude.some(pathCheck)) {
+            if (exclude.includes(fullpath)) {
                 continue;
             }
 
             if (dirent.isDirectory()) {
-                tasks.push(collect(fullpath, files));
+                tasks.push(collect(basedir, fullpath + path.sep, relpath + path.sep, files));
                 continue;
             }
 
             if (dirent.isSymbolicLink()) {
-                tasks.push(fsPromise.realpath(fullpath).then(realpath => {
-                    symlinks.push({
-                        path: relpath,
-                        realpath
-                    });
-                }));
+                tasks.push(fsPromise.realpath(fullpath)
+                    .then(realpath => {
+                        symlinks.push({
+                            path: relpath,
+                            realpath
+                        });
+                    })
+                    .catch(error => {
+                        errors.push(error = scanError('resolve-symlink', fullpath, error));
+                        onError(error);
+                    })
+                );
                 continue;
             }
 
             filesTested++;
 
-            for (let rule of rules) {
-                if (rule.test && !rule.test.some(rx => rx.test(relpath))) {
-                    continue;
-                }
-
-                if (rule.include && !rule.include.some(pathCheck)) {
-                    continue;
-                }
-
-                if (rule.exclude && rule.exclude.some(pathCheck)) {
+            for (const rule of rules) {
+                if (rule.accept && !rule.accept(relpath, fullpath)) {
                     continue;
                 }
 
@@ -185,31 +230,25 @@ function scanFs(options) {
 
                 files.push(file);
 
-                if (rule.extract.length) {
-                    tasks.push(fsPromise.readFile(fullpath, 'utf8').then(async content => {
-                        for (const extractor of rule.extract) {
-                            try {
-                                await extractor(file, content, {
-                                    basedir,
-                                    path: fullpath,
-                                    rule
-                                });
-                            } catch (extractError) {
-                                errors.push(extractError);
-                                onError(extractError);
-                            }
-                        }
-                    }).catch(error => {
-                        errors.push(error);
-                        onError(error);
-                    }));
+                if (rule.extract !== null) {
+                    tasks.push(fsPromise.readFile(fullpath, 'utf8')
+                        .then(content => rule.extract(file, content, {
+                            basedir,
+                            path: fullpath,
+                            rule
+                        }))
+                        .catch(error => {
+                            errors.push(error = scanError('extract', fullpath, error));
+                            onError(error);
+                        })
+                    );
                 }
 
                 break;
             }
         }
 
-        return Promise.all(tasks);
+        return tasks.length > 0 ? Promise.all(tasks) : Promise.resolve();
     }
 
     const files = [];
@@ -226,7 +265,15 @@ function scanFs(options) {
     let pathsScanned = 0;
     let filesTested = 0;
 
-    return collect(basedir, files).then(() =>
+    if (!include.length) {
+        include.push(basedir);
+    } else {
+        exclude.push(...include);
+    }
+
+    return Promise.all(include.map(dir =>
+        collect(basedir, dir + path.sep, '', files)
+    )).then(() =>
         Object.assign(files, {
             symlinks,
             errors,
