@@ -303,7 +303,12 @@ export function scanFs(options: Options) {
         exclude.push(...include);
     }
 
-    return Promise.all(include.map((dir) => collect(basedir, dir + pathSep, ''))).then(() =>
+    return Promise.all(
+        include.map((dir) => {
+            const relpath = path.relative(basedir, dir);
+            return collect(basedir, dir + pathSep, relpath ? relpath + pathSep : '');
+        })
+    ).then(() =>
         Object.assign(files, {
             symlinks,
             errors,

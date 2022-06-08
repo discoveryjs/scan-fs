@@ -5,6 +5,7 @@
 - Changed exporting for main function from `require('@discoveryjs/scan-fs')` into `require('@discoveryjs/scan-fs').scanFs`
 - Used `Symlink` internal class for symlinks entries
 - Allowed `scanFn()` invocation with no options
+- Fixed path building when `include` option is used
 
 ## 2.0.0 (2022-04-26)
 
