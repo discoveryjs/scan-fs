@@ -1,3 +1,10 @@
+## next
+
+- Added TypeScript typings (rewritten in TypeScript)
+- Converted to ES modules. However, CommonJS is supported as well (dual module)
+- Changed exporting for main function from `require('@discoveryjs/scan-fs')` into `require('@discoveryjs/scan-fs').scanFs`
+- Used `Symlink` internal class for symlinks entries
+
 ## 2.0.0 (2022-04-26)
 
 - Boosted performance up to 3-4 times

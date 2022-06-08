@@ -11,8 +11,8 @@ Is a part of [Discovery.js](https://github.com/discoveryjs) projects.
 
 - [How to use](#how-to-use)
 - [API](#api)
-    - [scanFs(options): Promise.<Array.\<File>>](#scanfsoptions-promisearrayfile)
-    - [scanFs.normalizeOptions(options: Object): Object](#scanfsnormalizeoptionsoptions-object-object)
+  - [scanFs(options: Options): Promise<File[]>](#scanfsoptions-options-promisefile)
+  - [normalizeOptions(options: Options): NormalizedOptions](#normalizeoptionsoptions-options-normalizedoptions)
 - [Examples](#examples)
 - [License](#license)
 
@@ -29,16 +29,19 @@ npm install @discoveryjs/scan-fs
 Use:
 
 ```js
-const scanFs = require('@discoveryjs/scan-fs');
+import { scanFs } from '@discoveryjs/scan-fs';
+// or const { scanFs } = require('@discoveryjs/scan-fs')
 
-scanFs({ /* options */ }).then(files => {
-    // do something with found and processed files
+scanFs({
+  /* options */
+}).then((files) => {
+  // do something with found and processed files
 });
 ```
 
 ## API
 
-### scanFs(options): Promise.<Array.\<File>>
+### scanFs(options: Options): Promise<File[]>
 
 Main method that returns a promise which resolves in a files list. Files list is an array of File instances. Beside that it has additional fields:
 
@@ -49,33 +52,31 @@ Main method that returns a promise which resolves in a files list. Files list is
 
 - **basedir**
 
-  Type: `String`  
+  Type: `string`  
   Default: `process.cwd()`
 
-  Base directory to scan.
+  Base directory to scan. All the paths in a result are relative to `basedir`.
 
 - **include**
 
-  Type: `String`, `Array.<String>` or `null`  
+  Type: `string`, `string[]` or `null`  
   Default: `null`
 
-  A list of directories relative to `basedir`. When used, a scanned file path must starts with one of an directories in the list. It's like a white list of paths. In case when the same path is used in `include` and `exclude`, `include` has priority over `exclude` (i.e. `include` wins).
+  A list of directories to scan, relative to `basedir`. When used, a scanned file path must start with one of the directories from the list. In case when the same path is used in `include` and `exclude`, `include` has priority over `exclude` (i.e. `include` wins).
 
 - **exclude**
 
-  Type: `String`, `Array.<String>` or `null`  
+  Type: `string`, `string[]` or `null`  
   Default: `null`
 
-  A list of directories relative to `basedir`. When used, a scanned file path must not starts with any of directories in the list. It's like a black list of paths.
-
-  > NOTE: `.git` and `node_modules` paths are including to `exclude` implicitly. To include them into scan just add required paths in `include`.
+  A list of directories to avoid scan, relative to `basedir`. When used, a scanned file path must not start with any of the directories from the list.
 
 - **rules**
 
-  Type: `Rule` or `Array.<Rule>`  
+  Type: `Rule` or `Rule[]`  
   Default: `[{}]`
 
-  Rules define which files should be added to a result and how to process them. When not set no any file will be matched. A first rule that can be applied wins, so other rules are ignoring.
+  `rules` defines which files should be added to a result and how to process them. When not set no any file will be matched. A first rule that can be applied wins, so other rules are skipping.
 
 - **onError**
 
@@ -88,32 +89,33 @@ A **rule** is an object with following fields (all are optional):
 
 - **test**
 
-  Type: `RegExp`, `Array.<RegExp>` or `null`  
+  Type: `RegExp`, `RegExp[]` or `null`  
   Default: `null`
 
   A list of RegExps that applies to relative to `options.basedir` path of file.
 
 - **include**
 
-  Type: `String`, `Array.<String>` or `null`  
+  Type: `string`, `string[]` or `null`  
   Default: `null`
 
   The same as for `options.include` but applies on a rule level. When used it also populates `options.include`.
 
 - **exclude**
 
-  Type: `String`, `Array.<String>` or `null`  
+  Type: `string`, `string[]` or `null`  
   Default: `null`
 
   The same as for `options.exclude` but applies on a rule level.
 
 - **extract**
 
-  Type: `function(file, content, rule)`  
+  Type: `function(file: File, content: string, rule: NormRule)`  
   Default: `[]`
 
   A list of function that extract some data from a file content. Such function takes three arguments:
-  - `file` – an instance of File
+
+  - `file` – an instance of `File`
   - `content` – a buffer contains content of a file
   - `rule` – rule object with normalized options and `basedir` (as a value of `options.basedir`)
 
@@ -124,7 +126,23 @@ A **rule** is an object with following fields (all are optional):
 
   When `only` is true only single rule applies. If several rules have truthy value for `only`, then first rule wins. The option is useful for debugging.
 
-### scanFs.normalizeOptions(options: Object): Object
+The return value of `scanFs()` is a `Promise` which resolves into an array of files with some additional fields:
+
+```ts
+ReturnType<typeof scanFs> = File[] & {
+  symlinks: Symlink[];
+  errors: ScanError[];
+  stat: {
+    pathsScanned: number;
+    filesTested: number;
+    filesMatched: number;
+    errors: number;
+    time: number;
+  }
+}
+```
+
+### normalizeOptions(options: Options): NormalizedOptions
 
 This method is used internally to normalize options, which is reducing checking and potential errors during a FS scan. The method can be useful to understand how `scanFs()` transforms passed options.
 
@@ -133,20 +151,22 @@ This method is used internally to normalize options, which is reducing checking 
 Find all `package.json` files from `node_modules` and extract `name` and `dependencies` from each one:
 
 ```js
-const scanFs = require('@discoveryjs/scan-fs');
+import { scanFs } from '@discoveryjs/scan-fs';
 
 scanFs({
-    include: ['node_modules'],
-    rules: [{
-        test: /\/package.json$/,
-        extract: (file, content) => {
-            const pkg = JSON.parse(content);
-            file.name = pkg.name;
-            file.dependencies = pkg.dependencies;
-        }
-    }]
-}).then(files => {
-    files.forEach(file => console.log(file));
+  exclude: ['.git', 'node_modules'],
+  rules: [
+    {
+      test: /\/package.json$/,
+      extract(file, content) {
+        const pkg = JSON.parse(content);
+        file.name = pkg.name;
+        file.dependencies = pkg.dependencies;
+      }
+    }
+  ]
+}).then((files) => {
+  files.forEach((file) => console.log(file));
 });
 ```
 
