@@ -60,6 +60,8 @@ function composeAccept(first, second) {
 }
 
 function normalizeOptions(options) {
+    const posix = Boolean(options.posix);
+    const pathSep = posix ? path.posix.sep : path.sep;
     const basedir = path.resolve(options.basedir || process.cwd());
     const generalInclude = new Set(
         ensureArray(options.include)
@@ -125,9 +127,9 @@ function normalizeOptions(options) {
                         return dir;
                     });
 
-                    accept = composeAccept(accept, (fullpath) => {
+                    accept = composeAccept(accept, (relpath) => {
                         for (const dir of include) {
-                            if (fullpath == dir || fullpath.startsWith(dir + '/')) {
+                            if (relpath == dir || relpath.startsWith(dir + pathSep)) {
                                 return true;
                             }
                         }
@@ -145,9 +147,9 @@ function normalizeOptions(options) {
 
                     exclude = exclude.map(dir => path.resolve(basedir, dir));
 
-                    accept = composeAccept(accept, (fullpath) => {
+                    accept = composeAccept(accept, (relpath) => {
                         for (const dir of exclude) {
-                            if (fullpath === dir || fullpath.startsWith(dir + '/')) {
+                            if (relpath === dir || relpath.startsWith(dir + pathSep)) {
                                 return false;
                             }
                         }
@@ -177,6 +179,7 @@ function normalizeOptions(options) {
     generalInclude.forEach(dir => generalExclude.delete(dir));
 
     return {
+        posix,
         basedir,
         include: [...generalInclude],
         exclude: [...generalExclude],
@@ -200,7 +203,7 @@ function scanFs(options) {
             }
 
             if (dirent.isDirectory()) {
-                tasks.push(collect(basedir, fullpath + path.sep, relpath + path.sep, files));
+                tasks.push(collect(basedir, fullpath + pathSep, relpath + pathSep, files));
                 continue;
             }
 
@@ -214,7 +217,7 @@ function scanFs(options) {
                     })
                     .catch(error => {
                         symlinks.push({ path: relpath, realpath: null });
-                        errors.push(error = scanError('resolve-symlink', fullpath, error));
+                        errors.push(error = scanError('resolve-symlink', relpath, error));
                         onError(error);
                     })
                 );
@@ -224,7 +227,7 @@ function scanFs(options) {
             filesTested++;
 
             for (const rule of rules) {
-                if (rule.accept && !rule.accept(relpath, fullpath)) {
+                if (rule.accept && !rule.accept(relpath)) {
                     continue;
                 }
 
@@ -236,7 +239,7 @@ function scanFs(options) {
                     tasks.push(fsPromise.readFile(fullpath, 'utf8')
                         .then(content => rule.extract(file, content, rule))
                         .catch(error => {
-                            errors.push(error = scanError('extract', fullpath, error));
+                            errors.push(error = scanError('extract', relpath, error));
                             onError(error);
                         })
                     );
@@ -254,12 +257,14 @@ function scanFs(options) {
     const errors = [];
     const startTime = Date.now();
     const {
+        posix,
         basedir,
         include,
         exclude,
         onError,
         rules
     } = normalizeOptions(options);
+    const pathSep = posix ? path.posix.sep : path.sep;
     let pathsScanned = 0;
     let filesTested = 0;
 
@@ -270,7 +275,7 @@ function scanFs(options) {
     }
 
     return Promise.all(include.map(dir =>
-        collect(basedir, dir + path.sep, '', files)
+        collect(basedir, dir + pathSep, '', files)
     )).then(() =>
         Object.assign(files, {
             symlinks,
