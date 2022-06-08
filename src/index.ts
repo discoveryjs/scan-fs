@@ -91,7 +91,7 @@ function composeAccept(first: AcceptCallback | null, second: AcceptCallback): Ac
     return first ? (relpath) => first(relpath) && second(relpath) : second;
 }
 
-export function normalizeOptions(options: Options) {
+export function normalizeOptions(options: Options = {}) {
     const posix = Boolean(options.posix);
     const pathSep = posix ? path.posix.sep : path.sep;
     const basedir = path.resolve(options.basedir || process.cwd());
