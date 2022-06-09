@@ -1,4 +1,4 @@
-import * as fsPromise from 'fs/promises';
+import { promises as fsPromise } from 'fs';
 import * as path from 'path';
 
 export type ScanError = Error & {
