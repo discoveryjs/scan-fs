@@ -1,4 +1,4 @@
-## next
+## 3.0.0 (2022-06-09)
 
 - Added TypeScript typings (rewritten in TypeScript)
 - Converted to ES modules. However, CommonJS is supported as well (dual module)
