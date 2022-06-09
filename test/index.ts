@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { scanFs, Options } from '@discoveryjs/scan-fs';
+import { scanFs, Options, File } from '@discoveryjs/scan-fs';
 
 const basedir = `${process.cwd()}/test-fixtures`;
 const expected = Array.from(
@@ -18,7 +18,7 @@ const expected = Array.from(
     (path) => ({ path })
 );
 
-async function run(options?: Options): Promise<ReturnType<typeof scanFs & { files: File[] }>> {
+async function run(options?: Options): Promise<ReturnType<typeof scanFs> & { files: File[] }> {
     const result = await scanFs(options);
 
     result.sort((a, b) => (a.path < b.path ? -1 : 1));
