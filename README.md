@@ -1,6 +1,8 @@
 # @discoveryjs/scan-fs
 
 [![NPM version](https://img.shields.io/npm/v/@discoveryjs/scan-fs.svg)](https://www.npmjs.com/package/@discoveryjs/scan-fs)
+[![Build](https://github.com/discoveryjs/scan-fs/actions/workflows/build.yml/badge.svg)](https://github.com/discoveryjs/scan-fs/actions/workflows/build.yml)
+[![Coverage Status](https://coveralls.io/repos/github/discoveryjs/scan-fs/badge.svg?branch=master)](https://coveralls.io/github/discoveryjs/scan-fs?branch=master)
 [![Twitter](https://img.shields.io/badge/Twitter-@js_discovery-blue.svg)](https://twitter.com/js_discovery)
 
 An utility for seeking files by file system scanning and optionally populating file info with processing their content. It's like a Webpack's loaders but for extracting data from a FS and files.
