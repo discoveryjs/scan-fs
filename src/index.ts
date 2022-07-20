@@ -19,6 +19,7 @@ export type Options = {
     include?: string | string[];
     exclude?: string | string[];
     rules?: Rule | Rule[];
+    resolveSymlinks?: boolean;
     onError?: boolean | ((error: Error) => void);
 };
 export type AcceptCallback = (relpath: string) => boolean;
@@ -37,8 +38,9 @@ export type NormalizedOptions = {
     basedir: string;
     include: string[];
     exclude: string[];
-    onError: (error: Error) => void;
     rules: MatchRule[];
+    resolveSymlinks?: boolean;
+    onError: (error: Error) => void;
 };
 export type ScanResult = {
     files: File[];
@@ -114,6 +116,7 @@ export function normalizeOptions(options: Options | string = {}): NormalizedOpti
     const posix = Boolean(options.posix);
     const pathSep = posix ? path.posix.sep : path.sep;
     const basedir = path.resolve(options.basedir || process.cwd());
+    const resolveSymlinks = Boolean(options.resolveSymlinks);
     const generalInclude = new Set(
         ensureArray(options.include).map((dir) => path.resolve(basedir, dir))
     );
@@ -234,8 +237,9 @@ export function normalizeOptions(options: Options | string = {}): NormalizedOpti
         basedir,
         include: [...generalInclude],
         exclude: [...generalExclude],
-        onError,
-        rules
+        rules,
+        resolveSymlinks,
+        onError
     };
 }
 
@@ -260,18 +264,22 @@ export async function scanFs(options?: Options | string): Promise<ScanResult> {
 
             if (dirent.isSymbolicLink()) {
                 const symlink = new Symlink(relpath, null);
+
                 symlinks.push(symlink);
-                tasks.push(
-                    fsPromise
-                        .realpath(fullpath)
-                        .then((realpath) => {
-                            symlink.realpath = path.relative(basedir, realpath);
-                        })
-                        .catch((error) => {
-                            errors.push((error = scanError('resolve-symlink', relpath, error)));
-                            onError(error);
-                        })
-                );
+
+                if (resolveSymlinks) {
+                    tasks.push(
+                        fsPromise
+                            .realpath(fullpath)
+                            .then((realpath) => {
+                                symlink.realpath = path.relative(basedir, realpath);
+                            })
+                            .catch((error) => {
+                                errors.push((error = scanError('resolve-symlink', relpath, error)));
+                                onError(error);
+                            })
+                    );
+                }
                 continue;
             }
 
@@ -312,7 +320,8 @@ export async function scanFs(options?: Options | string): Promise<ScanResult> {
     const files: File[] = [];
     const symlinks: Symlink[] = [];
     const errors: ScanError[] = [];
-    const { posix, basedir, include, exclude, onError, rules } = normalizeOptions(options);
+    const { posix, basedir, include, exclude, rules, resolveSymlinks, onError } =
+        normalizeOptions(options);
     const pathSep = posix ? path.posix.sep : path.sep;
     let pathsScanned = 0;
     let filesTested = 0;

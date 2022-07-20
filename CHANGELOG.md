@@ -15,6 +15,7 @@
   ```
 
 - Replaced `stat` object in `scanFs()` result with fields `pathsScanned` and `filesTested`
+- Added `resolveSymlinks` option to enable symlink resolving, a symlink resolving is disabled by default
 - Rename `NormRule` type into `MatchRule`
 - Added `ScanResult` type to define returning type of `scanFs()`
 

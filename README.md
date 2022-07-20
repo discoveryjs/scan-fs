@@ -149,6 +149,7 @@ type Options = {
   include?: string | string[];
   exclude?: string | string[];
   rules?: Rule | Rule[];
+  resolveSymlinks?: boolean;
   onError?: boolean | ((error: Error) => void);
 };
 
@@ -168,8 +169,9 @@ type NormalizedOptions = {
   basedir: string;
   include: string[];
   exclude: string[];
-  onError: (error: Error) => void;
   rules: MatchRule[];
+  resolveSymlinks: boolean;
+  onError: (error: Error) => void;
 };
 
 type ScanResult = {

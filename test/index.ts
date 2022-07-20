@@ -20,16 +20,6 @@ const expectedFiles = Array.from(
     (path) => ({ path })
 );
 
-const expectedSymlinks = [
-    { path: 'symlink-broken', realpath: null },
-    { path: 'symlink1', realpath: 'baz/file2-2.txt' },
-    { path: 'bar/symlink2', realpath: 'file1.js' }
-];
-const expectedNotResolvedSymlinks = expectedSymlinks.map((symlink) => ({
-    ...symlink,
-    realpath: undefined
-}));
-
 async function run(...args: Parameters<typeof scanFs>): ReturnType<typeof scanFs> {
     const result = await scanFs(...args);
 
@@ -50,22 +40,18 @@ function expectedFilesForDir(dir: string) {
     return expectedForDir(expectedFiles, dir);
 }
 
-function expectedSymlinksForDir(dir: string) {
-    return expectedForDir(
-        expectedSymlinks.map((symlink) => ({
-            ...symlink,
-            realpath: symlink.realpath && path.relative(dir, symlink.realpath)
-        })),
-        dir
-    );
-}
-
 describe('scanFs()', () => {
     before(() => {
         process.chdir(basedir);
 
         // ensure symlinks are existed
-        for (const symlink of expectedSymlinks) {
+        const symlinks = [
+            { path: 'symlink-broken', realpath: null },
+            { path: 'symlink1', realpath: 'baz/file2-2.txt' },
+            { path: 'bar/symlink2', realpath: 'file1.js' }
+        ];
+
+        for (const symlink of symlinks) {
             try {
                 fs.symlinkSync(
                     path.relative(
@@ -93,24 +79,44 @@ describe('scanFs()', () => {
     it('using with for .. of', async () => {
         const actual: File[] = [];
 
-        for (const file of (await run('bar')).files) {
+        for (const file of (await run()).files) {
             actual.push(file);
         }
 
-        assert.deepEqual(actual, expectedFilesForDir('bar'));
+        assert.deepEqual(actual, expectedFiles);
     });
 
     describe('symlinks', () => {
-        it('should collect and resolve symlinks by default', async () => {
+        it('should collect symlinks by default', async () => {
             const actual = await run();
 
-            assert.deepEqual(actual.symlinks, expectedSymlinks);
+            assert.deepEqual(actual.symlinks, [
+                { path: 'symlink-broken', realpath: null },
+                { path: 'symlink1', realpath: null },
+                { path: 'bar/symlink2', realpath: null }
+            ]);
         });
 
-        it('should collect and resolve symlinks by default', async () => {
-            const actual = await run('bar');
+        it('should collect symlinks relative to basedir', async () => {
+            const actual = await run({ basedir: 'bar' });
 
-            assert.deepEqual(actual.symlinks, expectedSymlinksForDir('bar'));
+            assert.deepEqual(actual.symlinks, [{ path: 'symlink2', realpath: null }]);
+        });
+
+        it('should resolve symlinks with resolveSymlinks:true', async () => {
+            const actual = await run({ resolveSymlinks: true });
+
+            assert.deepEqual(actual.symlinks, [
+                { path: 'symlink-broken', realpath: null },
+                { path: 'symlink1', realpath: 'baz/file2-2.txt' },
+                { path: 'bar/symlink2', realpath: 'file1.js' }
+            ]);
+        });
+
+        it('should resolve symlinks with resolveSymlinks:true relative to basedir', async () => {
+            const actual = await run({ basedir: 'bar', resolveSymlinks: true });
+
+            assert.deepEqual(actual.symlinks, [{ path: 'symlink2', realpath: '../file1.js' }]);
         });
     });
 
@@ -228,6 +234,7 @@ describe('scanFs()', () => {
                             : file
                     )
             );
+            assert.deepEqual(actual.errors[0].message, 'Parse error');
         });
     });
 });
