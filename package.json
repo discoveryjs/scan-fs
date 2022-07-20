@@ -43,7 +43,7 @@
           "typescript": "^4.7.2"
      },
      "scripts": {
-          "lint": "eslint src test scripts/*.cjs",
+          "lint": "eslint src test scripts/*.cjs && prettier -c src test scripts README.md",
           "ts-check": "tsc --noEmit",
           "ts-emit-types": "tsc --emitDeclarationOnly",
           "test": "npm run test:esm && npm run test:cjs",
