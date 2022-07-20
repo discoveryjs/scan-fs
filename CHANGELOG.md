@@ -14,7 +14,9 @@
   console.log(files, symlinks);
   ```
 
+- Replaced `stat` object in `scanFs()` result with fields `pathsScanned` and `filesTested`
 - Rename `NormRule` type into `MatchRule`
+- Added `ScanResult` type to define returning type of `scanFs()`
 
 ## 3.0.0 (2022-06-09)
 

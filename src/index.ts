@@ -44,13 +44,8 @@ export type ScanResult = {
     files: File[];
     symlinks: Symlink[];
     errors: ScanError[];
-    stat: {
-        pathsScanned: number;
-        filesTested: number;
-        filesMatched: number;
-        errors: number;
-        time: number;
-    };
+    pathsScanned: number;
+    filesTested: number;
 };
 
 export class File {
@@ -244,7 +239,7 @@ export function normalizeOptions(options: Options | string = {}): NormalizedOpti
     };
 }
 
-export function scanFs(options?: Options | string): Promise<ScanResult> {
+export async function scanFs(options?: Options | string): Promise<ScanResult> {
     async function collect(basedir: string, absdir: string, reldir: string) {
         const tasks = [];
 
@@ -317,7 +312,6 @@ export function scanFs(options?: Options | string): Promise<ScanResult> {
     const files: File[] = [];
     const symlinks: Symlink[] = [];
     const errors: ScanError[] = [];
-    const startTime = Date.now();
     const { posix, basedir, include, exclude, onError, rules } = normalizeOptions(options);
     const pathSep = posix ? path.posix.sep : path.sep;
     let pathsScanned = 0;
@@ -329,21 +323,18 @@ export function scanFs(options?: Options | string): Promise<ScanResult> {
         exclude.push(...include);
     }
 
-    return Promise.all(
+    await Promise.all(
         include.map((dir) => {
             const relpath = path.relative(basedir, dir);
             return collect(basedir, dir + pathSep, relpath ? relpath + pathSep : '');
         })
-    ).then(() => ({
+    );
+
+    return {
         files,
         symlinks,
         errors,
-        stat: {
-            pathsScanned,
-            filesTested,
-            filesMatched: files.length,
-            errors: errors.length,
-            time: Date.now() - startTime
-        }
-    }));
+        pathsScanned,
+        filesTested
+    };
 }

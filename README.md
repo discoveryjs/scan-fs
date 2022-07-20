@@ -176,13 +176,8 @@ type ScanResult = {
   files: File[];
   symlinks: Symlink[];
   errors: ScanError[];
-  stat: {
-    pathsScanned: number;
-    filesTested: number;
-    filesMatched: number;
-    errors: number;
-    time: number;
-  };
+  pathsScanned: number;
+  filesTested: number;
 };
 
 type File = {
@@ -208,7 +203,7 @@ Find all `package.json` files from `node_modules` and extract `name` and `depend
 ```js
 import { scanFs } from '@discoveryjs/scan-fs';
 
-scanFs({
+const { files } = await scanFs({
   exclude: ['.git', 'node_modules'],
   rules: [
     {
@@ -220,9 +215,11 @@ scanFs({
       }
     }
   ]
-}).then((files) => {
-  files.forEach((file) => console.log(file));
 });
+
+for (const file of files) {
+  console.log(file);
+}
 ```
 
 ## License
