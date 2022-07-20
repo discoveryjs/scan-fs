@@ -37,6 +37,18 @@ describe('scanFs()', () => {
         assert.deepEqual(actual.files, expected);
     });
 
+    it('allow to pass a string as options', async () => {
+        const actual = await run('bar');
+
+        assert(Array.isArray(actual));
+        assert.deepEqual(
+            actual.files,
+            expected
+                .filter((file) => file.path.startsWith('bar/'))
+                .map((file) => ({ path: file.path.replace(/^bar\//, '') }))
+        );
+    });
+
     it('basedir', async () => {
         const actual = await run({ basedir: 'bar' });
 

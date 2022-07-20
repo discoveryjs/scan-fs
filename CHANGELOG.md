@@ -1,3 +1,7 @@
+## next
+
+- Allowed to pass a string value as an options, it's equivalent to `{ basedir: <string> }`
+
 ## 3.0.0 (2022-06-09)
 
 - Added TypeScript typings (rewritten in TypeScript)
