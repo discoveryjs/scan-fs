@@ -1,8 +1,10 @@
 import assert from 'assert';
+import path from 'path';
+import fs from 'fs';
 import { scanFs, File } from '@discoveryjs/scan-fs';
 
 const basedir = `${process.cwd()}/test-fixtures`;
-const expected = Array.from(
+const expectedFiles = Array.from(
     [
         'bar.test',
         'bar/a/file3-1.js',
@@ -13,10 +15,20 @@ const expected = Array.from(
         'file1.js',
         'file2.ts',
         'foo.test',
-        'foo/foo/foo/file4-1.css'
+        'foo/foo/foo/file-with-error.css'
     ],
     (path) => ({ path })
 );
+
+const expectedSymlinks = [
+    { path: 'symlink-broken', realpath: null },
+    { path: 'symlink1', realpath: 'baz/file2-2.txt' },
+    { path: 'bar/symlink2', realpath: 'file1.js' }
+];
+const expectedNotResolvedSymlinks = expectedSymlinks.map((symlink) => ({
+    ...symlink,
+    realpath: undefined
+}));
 
 async function run(...args: Parameters<typeof scanFs>): ReturnType<typeof scanFs> {
     const result = await scanFs(...args);
@@ -25,27 +37,57 @@ async function run(...args: Parameters<typeof scanFs>): ReturnType<typeof scanFs
 
     return result;
 }
-function expectedForPath(path: string) {
-    const pattern = path + '/';
+
+function expectedForDir(expected, dir: string) {
+    const pattern = dir + '/';
 
     return expected
-        .filter((file) => file.path.startsWith(pattern))
-        .map((file) => ({ ...file, path: file.path.slice(pattern.length) }));
+        .filter((entry) => entry.path.startsWith(pattern))
+        .map((entry) => ({ ...entry, path: entry.path.slice(pattern.length) }));
+}
+
+function expectedFilesForDir(dir: string) {
+    return expectedForDir(expectedFiles, dir);
+}
+
+function expectedSymlinksForDir(dir: string) {
+    return expectedForDir(
+        expectedSymlinks.map((symlink) => ({
+            ...symlink,
+            realpath: symlink.realpath && path.relative(dir, symlink.realpath)
+        })),
+        dir
+    );
 }
 
 describe('scanFs()', () => {
-    before(() => process.chdir(basedir));
+    before(() => {
+        process.chdir(basedir);
+
+        // ensure symlinks are existed
+        for (const symlink of expectedSymlinks) {
+            try {
+                fs.symlinkSync(
+                    path.relative(
+                        path.dirname(symlink.path),
+                        path.resolve(String(symlink.realpath))
+                    ),
+                    symlink.path
+                );
+            } catch {}
+        }
+    });
 
     it('should run without options', async () => {
         const actual = await run();
 
-        assert.deepEqual(actual.files, expected);
+        assert.deepEqual(actual.files, expectedFiles);
     });
 
     it('allow to pass a string as options', async () => {
         const actual = await run('bar');
 
-        assert.deepEqual(actual.files, expectedForPath('bar'));
+        assert.deepEqual(actual.files, expectedFilesForDir('bar'));
     });
 
     it('using with for .. of', async () => {
@@ -55,14 +97,42 @@ describe('scanFs()', () => {
             actual.push(file);
         }
 
-        assert.deepEqual(actual, expectedForPath('bar'));
+        assert.deepEqual(actual, expectedFilesForDir('bar'));
+    });
+
+    describe('symlinks', () => {
+        it('should collect and resolve symlinks by default', async () => {
+            const actual = await run();
+
+            assert.deepEqual(actual.symlinks, expectedSymlinks);
+        });
+
+        it('should collect and resolve symlinks by default', async () => {
+            const actual = await run('bar');
+
+            assert.deepEqual(actual.symlinks, expectedSymlinksForDir('bar'));
+        });
     });
 
     describe('options', () => {
         it('basedir', async () => {
             const actual = await run({ basedir: 'bar' });
 
-            assert.deepEqual(actual.files, expectedForPath('bar'));
+            assert.deepEqual(actual.files, expectedFilesForDir('bar'));
+        });
+
+        it('should throw when basedir is a non-exists path', () => {
+            return assert.rejects(
+                () => run({ basedir: 'non-exists' }),
+                /no such file or directory/
+            );
+        });
+
+        it('should throw when basedir is a non-exists path', () => {
+            return assert.rejects(
+                () => run({ basedir: 'foo/foo/foo/file-with-error.css' }),
+                /not a directory/
+            );
         });
 
         it('include as string', async () => {
@@ -70,7 +140,7 @@ describe('scanFs()', () => {
 
             assert.deepEqual(
                 actual.files,
-                expected.filter((file) => file.path.startsWith('bar/'))
+                expectedFiles.filter((file) => file.path.startsWith('bar/'))
             );
         });
 
@@ -79,7 +149,7 @@ describe('scanFs()', () => {
 
             assert.deepEqual(
                 actual.files,
-                expected.filter(
+                expectedFiles.filter(
                     (file) => file.path.startsWith('bar/') || file.path.startsWith('baz/')
                 )
             );
@@ -90,7 +160,7 @@ describe('scanFs()', () => {
 
             assert.deepEqual(
                 actual.files,
-                expected.filter((file) => !file.path.startsWith('bar/'))
+                expectedFiles.filter((file) => !file.path.startsWith('bar/'))
             );
         });
 
@@ -99,7 +169,7 @@ describe('scanFs()', () => {
 
             assert.deepEqual(
                 actual.files,
-                expected.filter(
+                expectedFiles.filter(
                     (file) => !file.path.startsWith('bar/') && !file.path.startsWith('baz/')
                 )
             );
@@ -110,7 +180,7 @@ describe('scanFs()', () => {
         it('rules as object', async () => {
             const actual = await run({ rules: {} });
 
-            assert.deepEqual(actual.files, expected);
+            assert.deepEqual(actual.files, expectedFiles);
         });
 
         it('rules as object with test option', async () => {
@@ -118,16 +188,45 @@ describe('scanFs()', () => {
 
             assert.deepEqual(
                 actual.files,
-                expected.filter((file) => file.path.endsWith('.js'))
+                expectedFiles.filter((file) => file.path.endsWith('.js'))
+            );
+        });
+
+        it('rules as object with test option', async () => {
+            const actual = await run({ rules: { test: /\.js$/ } });
+
+            assert.deepEqual(
+                actual.files,
+                expectedFiles.filter((file) => file.path.endsWith('.js'))
             );
         });
 
         it('rules as array', async () => {
-            const actual = await run({ rules: [{ test: /\.js$/ }, { test: /\.css$/ }] });
+            const actual = await run({
+                rules: [
+                    { test: /\.js$/ },
+                    {
+                        test: /\.css$/,
+                        extract(file, content) {
+                            if (file.path.includes('error')) {
+                                throw new Error('Parse error');
+                            }
+
+                            file.content = content;
+                        }
+                    }
+                ]
+            });
 
             assert.deepEqual(
                 actual.files,
-                expected.filter((file) => file.path.endsWith('.js') || file.path.endsWith('.css'))
+                expectedFiles
+                    .filter((file) => file.path.endsWith('.js') || file.path.endsWith('.css'))
+                    .map((file) =>
+                        file.path.endsWith('.css') && !file.path.includes('error')
+                            ? { ...file, content: `/* ${path.basename(file.path)} */\n` }
+                            : file
+                    )
             );
         });
     });

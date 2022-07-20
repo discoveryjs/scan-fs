@@ -122,7 +122,7 @@ export function normalizeOptions(options: Options | string = {}): NormalizedOpti
     );
     const onError =
         'onError' in options === false
-            ? (err: Error) => console.error('[@discoveryjs/scan-fs] Error:', err)
+            ? (err: Error) => console.error('[@discoveryjs/scan-fs]', err)
             : typeof options.onError === 'function'
             ? options.onError
             : () => {};
