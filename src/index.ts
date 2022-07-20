@@ -1,8 +1,9 @@
 import { promises as fsPromise } from 'fs';
 import * as path from 'path';
 
+export type ScanErrorReason = 'resolve-symlink' | 'extract';
 export type ScanError = Error & {
-    reason: string;
+    reason: ScanErrorReason;
     path: string;
     toJSON(): { reason: string; path: string; message: string };
 };
@@ -74,9 +75,9 @@ export class Symlink {
     constructor(public path: string, public realpath: string | null) {}
 }
 
-function scanError(reason: string, path: string, error: ScanError) {
-    error.path = path;
+function scanError(reason: ScanErrorReason, path: string, error: ScanError) {
     error.reason = reason;
+    error.path = path;
     error.toJSON = () => {
         return {
             reason,

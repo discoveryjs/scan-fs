@@ -44,10 +44,13 @@ const { files, symlinks, errors } = scanFs({
 
 ### scanFs(options?: Options | string): Promise<ScanResult>
 
-Main method that scans a file system for files and returns a promise which resolves in a files list. Files list is an array of `File` instances. Beside that it has additional fields:
+Main method that scans a file system for files and symlinks, returns an object with the following fields:
 
-- `errors` a list of some error occuried during scanning and file processing
-- `stat` an object with some counters and elapsed time
+- `files` – a list of files that meet a path requirements and match to one of rules if any
+- `symlinks` – a list of symlinks that meet a path requirements
+- `errors` – a list of errors occuried during file processing or symlink resolving
+- `pathsScanned` – a number of paths which was examinated during a scanning
+- `filesTested` – a number of file paths which was examinated by rules
 
 `options` is a string (which transforms into `{ basedir: <string> }`) or an object with all optional fields:
 
@@ -81,6 +84,13 @@ Main method that scans a file system for files and returns a promise which resol
 
   `rules` defines which files should be added to a result and how to process them. When not set no any file will be matched. A first rule that can be applied wins, so other rules are skipping.
 
+- **resolveSymlinks**
+
+  Type: `boolean`  
+  Default: `false`
+
+  Try to resolve the canonical pathname for symbolic links, the result is storing in `realpath` of `Symlink`. In case a resolving is failed or disabled the `realpath` field will contain `null`. On failure, an error is emitting with reason `resolve-symlink`.
+
 - **onError**
 
   Type: `function(error)` or `null`  
@@ -107,20 +117,22 @@ A **rule** is an object with following fields (all are optional):
 - **exclude**
 
   Type: `string`, `string[]` or `null`  
-  Default: `null`
+  Default: `undefnullined`
 
   The same as for `options.exclude` but applies on a rule level.
 
 - **extract**
 
   Type: `function(file: File, content: string, rule: MatchRule)`  
-  Default: `[]`
+  Default: `undefined`
 
-  A list of function that extract some data from a file content. Such function takes three arguments:
+  A function that extract some data from a file content. Such a function receives three arguments:
 
   - `file` – an instance of `File`
   - `content` – a buffer contains content of a file
   - `rule` – rule object with normalized options and `basedir` (as a value of `options.basedir`)
+
+  On failure, an error is emitting with reason `extract`.
 
 - **only**
 
@@ -192,7 +204,7 @@ type Symlink = {
   realpath: string | null;
 };
 type ScanError = Error & {
-  reason: string;
+  reason: 'resolve-symlink' | 'extract';
   path: string;
   toJSON(): { reason: string; path: string; message: string };
 };
