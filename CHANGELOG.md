@@ -1,6 +1,20 @@
 ## next
 
 - Allowed to pass a string value as an options, it's equivalent to `{ basedir: <string> }`
+- Fixed `scanFs()` definition to allow omitting of `options` argument
+- Changed `scanFs()` to return a plain object instead of `File[]` with additional fields
+
+  ```js
+  // before
+  const files = await scanFs(...)
+  console.log(files, files.symlinks);
+
+  // after
+  const { files, symlinks } = await scanFs(...)
+  console.log(files, symlinks);
+  ```
+
+- Rename `NormRule` type into `MatchRule`
 
 ## 3.0.0 (2022-06-09)
 

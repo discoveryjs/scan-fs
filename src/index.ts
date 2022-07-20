@@ -6,23 +6,12 @@ export type ScanError = Error & {
     path: string;
     toJSON(): { reason: string; path: string; message: string };
 };
-export type AcceptCallback = (relpath: string) => boolean;
-export type ExtractCallback = (file: File, content: string, rule: NormRule) => void;
 export type Rule = {
     only?: boolean;
     test?: RegExp | RegExp[];
     include?: string | string[];
     exclude?: string | string[];
     extract?: ExtractCallback;
-};
-export type NormRule = {
-    basedir: string;
-    config: Rule;
-    test: RegExp[] | null;
-    include: string[] | null;
-    exclude: string[] | null;
-    accept: AcceptCallback;
-    extract: ExtractCallback | null;
 };
 export type Options = {
     posix?: boolean;
@@ -31,6 +20,37 @@ export type Options = {
     exclude?: string | string[];
     rules?: Rule | Rule[];
     onError?: boolean | ((error: Error) => void);
+};
+export type AcceptCallback = (relpath: string) => boolean;
+export type ExtractCallback = (file: File, content: string, rule: MatchRule) => void;
+export type MatchRule = {
+    basedir: string;
+    accept: AcceptCallback;
+    extract: ExtractCallback | null;
+    config: Rule;
+    test: RegExp[] | null;
+    include: string[] | null;
+    exclude: string[] | null;
+};
+export type NormalizedOptions = {
+    posix: boolean;
+    basedir: string;
+    include: string[];
+    exclude: string[];
+    onError: (error: Error) => void;
+    rules: MatchRule[];
+};
+export type ScanResult = {
+    files: File[];
+    symlinks: Symlink[];
+    errors: ScanError[];
+    stat: {
+        pathsScanned: number;
+        filesTested: number;
+        filesMatched: number;
+        errors: number;
+        time: number;
+    };
 };
 
 export class File {
@@ -58,8 +78,8 @@ export class Symlink {
 }
 
 function scanError(reason: string, path: string, error: ScanError) {
-    error.reason = reason;
     error.path = path;
+    error.reason = reason;
     error.toJSON = () => {
         return {
             reason,
@@ -91,7 +111,7 @@ function composeAccept(first: AcceptCallback | null, second: AcceptCallback): Ac
     return first ? (relpath) => first(relpath) && second(relpath) : second;
 }
 
-export function normalizeOptions(options: Options | string = {}) {
+export function normalizeOptions(options: Options | string = {}): NormalizedOptions {
     if (typeof options === 'string') {
         options = { basedir: options };
     }
@@ -202,13 +222,13 @@ export function normalizeOptions(options: Options | string = {}) {
 
         return Object.freeze({
             basedir,
+            accept,
+            extract,
             config: rule,
             test,
             include,
-            exclude,
-            accept,
-            extract
-        } as NormRule);
+            exclude
+        } as MatchRule);
     });
 
     // include has a priority over exclude
@@ -224,8 +244,8 @@ export function normalizeOptions(options: Options | string = {}) {
     };
 }
 
-export function scanFs(options: Options | string) {
-    async function collect(basedir: string, absdir: string, reldir: string): Promise<any> {
+export function scanFs(options?: Options | string): Promise<ScanResult> {
+    async function collect(basedir: string, absdir: string, reldir: string) {
         const tasks = [];
 
         for (const dirent of await fsPromise.readdir(absdir, { withFileTypes: true })) {
@@ -276,7 +296,7 @@ export function scanFs(options: Options | string) {
                 if (extract !== null) {
                     tasks.push(
                         fsPromise
-                            .readFile(fullpath, 'utf8')
+                            .readFile(fullpath, 'utf8') // TODO: use encoding from rule config
                             .then((content) => extract(file, content, rule))
                             .catch((error) => {
                                 errors.push((error = scanError('extract', relpath, error)));
@@ -289,7 +309,9 @@ export function scanFs(options: Options | string) {
             }
         }
 
-        return tasks.length > 0 ? Promise.all(tasks) : Promise.resolve();
+        if (tasks.length > 0) {
+            await Promise.all(tasks);
+        }
     }
 
     const files: File[] = [];
@@ -312,17 +334,16 @@ export function scanFs(options: Options | string) {
             const relpath = path.relative(basedir, dir);
             return collect(basedir, dir + pathSep, relpath ? relpath + pathSep : '');
         })
-    ).then(() =>
-        Object.assign(files, {
-            symlinks,
-            errors,
-            stat: {
-                pathsScanned,
-                filesTested,
-                filesMatched: files.length,
-                errors: errors.length,
-                time: Date.now() - startTime
-            }
-        })
-    );
+    ).then(() => ({
+        files,
+        symlinks,
+        errors,
+        stat: {
+            pathsScanned,
+            filesTested,
+            filesMatched: files.length,
+            errors: errors.length,
+            time: Date.now() - startTime
+        }
+    }));
 }

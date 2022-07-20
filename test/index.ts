@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { scanFs, Options, File } from '@discoveryjs/scan-fs';
+import { scanFs, File } from '@discoveryjs/scan-fs';
 
 const basedir = `${process.cwd()}/test-fixtures`;
 const expected = Array.from(
@@ -18,13 +18,19 @@ const expected = Array.from(
     (path) => ({ path })
 );
 
-async function run(options?: Options): Promise<ReturnType<typeof scanFs> & { files: File[] }> {
-    const result = await scanFs(options);
+async function run(...args: Parameters<typeof scanFs>): ReturnType<typeof scanFs> {
+    const result = await scanFs(...args);
 
-    result.sort((a, b) => (a.path < b.path ? -1 : 1));
-    result.files = [...result];
+    result.files.sort((a, b) => (a.path < b.path ? -1 : 1));
 
     return result;
+}
+function expectedForPath(path: string) {
+    const pattern = path + '/';
+
+    return expected
+        .filter((file) => file.path.startsWith(pattern))
+        .map((file) => ({ ...file, path: file.path.slice(pattern.length) }));
 }
 
 describe('scanFs()', () => {
@@ -33,83 +39,96 @@ describe('scanFs()', () => {
     it('should run without options', async () => {
         const actual = await run();
 
-        assert(Array.isArray(actual));
         assert.deepEqual(actual.files, expected);
     });
 
     it('allow to pass a string as options', async () => {
         const actual = await run('bar');
 
-        assert(Array.isArray(actual));
-        assert.deepEqual(
-            actual.files,
-            expected
-                .filter((file) => file.path.startsWith('bar/'))
-                .map((file) => ({ path: file.path.replace(/^bar\//, '') }))
-        );
+        assert.deepEqual(actual.files, expectedForPath('bar'));
     });
 
-    it('basedir', async () => {
-        const actual = await run({ basedir: 'bar' });
+    it('using with for .. of', async () => {
+        const actual: File[] = [];
 
-        assert.deepEqual(
-            actual.files,
-            expected
-                .filter((file) => file.path.startsWith('bar/'))
-                .map((file) => ({ path: file.path.replace(/^bar\//, '') }))
-        );
+        for (const file of (await run('bar')).files) {
+            actual.push(file);
+        }
+
+        assert.deepEqual(actual, expectedForPath('bar'));
     });
 
-    it('include as string', async () => {
-        const actual = await run({ include: 'bar' });
+    describe('options', () => {
+        it('basedir', async () => {
+            const actual = await run({ basedir: 'bar' });
 
-        assert.deepEqual(
-            actual.files,
-            expected.filter((file) => file.path.startsWith('bar/'))
-        );
+            assert.deepEqual(actual.files, expectedForPath('bar'));
+        });
+
+        it('include as string', async () => {
+            const actual = await run({ include: 'bar' });
+
+            assert.deepEqual(
+                actual.files,
+                expected.filter((file) => file.path.startsWith('bar/'))
+            );
+        });
+
+        it('include as array of strings', async () => {
+            const actual = await run({ include: ['bar', 'baz'] });
+
+            assert.deepEqual(
+                actual.files,
+                expected.filter(
+                    (file) => file.path.startsWith('bar/') || file.path.startsWith('baz/')
+                )
+            );
+        });
+
+        it('exclude as string', async () => {
+            const actual = await run({ exclude: 'bar' });
+
+            assert.deepEqual(
+                actual.files,
+                expected.filter((file) => !file.path.startsWith('bar/'))
+            );
+        });
+
+        it('exclude as array of strings', async () => {
+            const actual = await run({ exclude: ['bar', 'baz'] });
+
+            assert.deepEqual(
+                actual.files,
+                expected.filter(
+                    (file) => !file.path.startsWith('bar/') && !file.path.startsWith('baz/')
+                )
+            );
+        });
     });
 
-    it('include as array of strings', async () => {
-        const actual = await run({ include: ['bar', 'baz'] });
+    describe('rules', () => {
+        it('rules as object', async () => {
+            const actual = await run({ rules: {} });
 
-        assert.deepEqual(
-            actual.files,
-            expected.filter((file) => file.path.startsWith('bar/') || file.path.startsWith('baz/'))
-        );
-    });
+            assert.deepEqual(actual.files, expected);
+        });
 
-    it('exclude as string', async () => {
-        const actual = await run({ exclude: 'bar' });
+        it('rules as object with test option', async () => {
+            const actual = await run({ rules: { test: /\.js$/ } });
 
-        assert.deepEqual(
-            actual.files,
-            expected.filter((file) => !file.path.startsWith('bar/'))
-        );
-    });
+            assert.deepEqual(
+                actual.files,
+                expected.filter((file) => file.path.endsWith('.js'))
+            );
+        });
 
-    it('exclude as array of strings', async () => {
-        const actual = await run({ exclude: ['bar', 'baz'] });
+        it('rules as array', async () => {
+            const actual = await run({ rules: [{ test: /\.js$/ }, { test: /\.css$/ }] });
 
-        assert.deepEqual(
-            actual.files,
-            expected.filter(
-                (file) => !file.path.startsWith('bar/') && !file.path.startsWith('baz/')
-            )
-        );
-    });
-
-    it('rules as object', async () => {
-        const actual = await run({ rules: {} });
-
-        assert.deepEqual(actual.files, expected);
-    });
-
-    it('rules as object with test = /\\.js$/', async () => {
-        const actual = await run({ rules: { test: /\.js$/ } });
-
-        assert.deepEqual(
-            actual.files,
-            expected.filter((file) => file.path.endsWith('.js'))
-        );
+            assert.deepEqual(
+                actual.files,
+                expected.filter((file) => file.path.endsWith('.js') || file.path.endsWith('.css'))
+            );
+        });
     });
 });

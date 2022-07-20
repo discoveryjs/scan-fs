@@ -13,8 +13,9 @@ Is a part of [Discovery.js](https://github.com/discoveryjs) projects.
 
 - [How to use](#how-to-use)
 - [API](#api)
-  - [scanFs(options: Options): Promise<File[]>](#scanfsoptions-options-promisefile)
-  - [normalizeOptions(options: Options): NormalizedOptions](#normalizeoptionsoptions-options-normalizedoptions)
+  - [scanFs(options?: Options | string): Promise\<ScanResult>](#scanfsoptions-options--string-promisescanresult)
+  - [normalizeOptions(options: Options | string = {}): NormalizedOptions](#normalizeoptionsoptions-options--string---normalizedoptions)
+  - [Types](#types)
 - [Examples](#examples)
 - [License](#license)
 
@@ -34,23 +35,23 @@ Use:
 import { scanFs } from '@discoveryjs/scan-fs';
 // or const { scanFs } = require('@discoveryjs/scan-fs')
 
-scanFs({
+const { files, symlinks, errors } = scanFs({
   /* options */
-}).then((files) => {
-  // do something with found and processed files
 });
 ```
 
 ## API
 
-### scanFs(options: Options): Promise<File[]>
+### scanFs(options?: Options | string): Promise<ScanResult>
 
-Main method that returns a promise which resolves in a files list. Files list is an array of File instances. Beside that it has additional fields:
+Main method that scans a file system for files and returns a promise which resolves in a files list. Files list is an array of `File` instances. Beside that it has additional fields:
 
 - `errors` a list of some error occuried during scanning and file processing
 - `stat` an object with some counters and elapsed time
 
-`options` is an object with fields (all are optional):
+`options` is a string (which transforms into `{ basedir: <string> }`) or an object with all optional fields:
+
+> Note: `options` argument is also optional which equivalent to a call `scanFs({})` or `scanFs({ basedir: process.pwd() })`.
 
 - **basedir**
 
@@ -112,7 +113,7 @@ A **rule** is an object with following fields (all are optional):
 
 - **extract**
 
-  Type: `function(file: File, content: string, rule: NormRule)`  
+  Type: `function(file: File, content: string, rule: MatchRule)`  
   Default: `[]`
 
   A list of function that extract some data from a file content. Such function takes three arguments:
@@ -128,10 +129,51 @@ A **rule** is an object with following fields (all are optional):
 
   When `only` is true only single rule applies. If several rules have truthy value for `only`, then first rule wins. The option is useful for debugging.
 
-The return value of `scanFs()` is a `Promise` which resolves into an array of files with some additional fields:
+### normalizeOptions(options: Options = {}): NormalizedOptions
+
+This method is used internally to normalize options, which is reducing checking and potential errors during a FS scan. The method can be useful to understand how `scanFs()` transforms passed options.
+
+### Types
 
 ```ts
-ReturnType<typeof scanFs> = File[] & {
+type Rule = {
+  only?: boolean;
+  test?: RegExp | RegExp[];
+  include?: string | string[];
+  exclude?: string | string[];
+  extract?: ExtractCallback;
+};
+type Options = {
+  posix?: boolean;
+  basedir?: string;
+  include?: string | string[];
+  exclude?: string | string[];
+  rules?: Rule | Rule[];
+  onError?: boolean | ((error: Error) => void);
+};
+
+type AcceptCallback = (relpath: string) => boolean;
+type ExtractCallback = (file: File, content: string, rule: MatchRule) => void;
+type MatchRule = {
+  basedir: string;
+  accept: AcceptCallback;
+  extract: ExtractCallback | null;
+  config: Rule;
+  test: RegExp[] | null;
+  include: string[] | null;
+  exclude: string[] | null;
+};
+type NormalizedOptions = {
+  posix: boolean;
+  basedir: string;
+  include: string[];
+  exclude: string[];
+  onError: (error: Error) => void;
+  rules: MatchRule[];
+};
+
+type ScanResult = {
+  files: File[];
   symlinks: Symlink[];
   errors: ScanError[];
   stat: {
@@ -140,13 +182,24 @@ ReturnType<typeof scanFs> = File[] & {
     filesMatched: number;
     errors: number;
     time: number;
-  }
-}
+  };
+};
+
+type File = {
+  path: string;
+  errors?: Array<{ message: string; details: any }>;
+  error(message: string, details: any): void;
+};
+type Symlink = {
+  path: string;
+  realpath: string | null;
+};
+type ScanError = Error & {
+  reason: string;
+  path: string;
+  toJSON(): { reason: string; path: string; message: string };
+};
 ```
-
-### normalizeOptions(options: Options): NormalizedOptions
-
-This method is used internally to normalize options, which is reducing checking and potential errors during a FS scan. The method can be useful to understand how `scanFs()` transforms passed options.
 
 ## Examples
 
