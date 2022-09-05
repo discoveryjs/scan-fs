@@ -3,7 +3,8 @@ import path from 'path';
 import fs from 'fs';
 import { scanFs, File } from '@discoveryjs/scan-fs';
 
-const basedir = `${process.cwd()}/test-fixtures`;
+const basedir = path.join(process.cwd(), 'test-fixtures');
+const ospath = (str: string) => str.replace(/\//g, path.sep);
 const expectedFiles = Array.from(
     [
         'bar.test',
@@ -17,7 +18,7 @@ const expectedFiles = Array.from(
         'foo.test',
         'foo/foo/foo/file-with-error.css'
     ],
-    (path) => ({ path })
+    (path) => ({ path: ospath(path) })
 );
 
 async function run(...args: Parameters<typeof scanFs>): ReturnType<typeof scanFs> {
@@ -29,7 +30,7 @@ async function run(...args: Parameters<typeof scanFs>): ReturnType<typeof scanFs
 }
 
 function expectedForDir(expected, dir: string) {
-    const pattern = dir + '/';
+    const pattern = dir + path.sep;
 
     return expected
         .filter((entry) => entry.path.startsWith(pattern))
@@ -46,20 +47,19 @@ describe('scanFs()', () => {
 
         // ensure symlinks are existed
         const symlinks = [
-            { path: 'symlink-broken', realpath: null },
-            { path: 'symlink1', realpath: 'baz/file2-2.txt' },
-            { path: 'bar/symlink2', realpath: 'file1.js' }
+            { path: ospath('symlink-broken'), realpath: null },
+            { path: ospath('symlink1'), realpath: ospath('baz/file2-2.txt') },
+            { path: ospath('bar/symlink2'), realpath: ospath('file1.js') }
         ];
 
         for (const symlink of symlinks) {
             try {
-                fs.symlinkSync(
-                    path.relative(
-                        path.dirname(symlink.path),
-                        path.resolve(String(symlink.realpath))
-                    ),
-                    symlink.path
-                );
+                if (symlink.realpath) {
+                    fs.symlinkSync(
+                        path.relative(path.dirname(symlink.path), path.resolve(symlink.realpath)),
+                        symlink.path
+                    );
+                }
             } catch {}
         }
     });
@@ -91,9 +91,9 @@ describe('scanFs()', () => {
             const actual = await run();
 
             assert.deepEqual(actual.symlinks, [
-                { path: 'symlink-broken', realpath: null },
-                { path: 'symlink1', realpath: null },
-                { path: 'bar/symlink2', realpath: null }
+                { path: ospath('symlink-broken'), realpath: null },
+                { path: ospath('symlink1'), realpath: null },
+                { path: ospath('bar/symlink2'), realpath: null }
             ]);
         });
 
@@ -107,16 +107,18 @@ describe('scanFs()', () => {
             const actual = await run({ resolveSymlinks: true });
 
             assert.deepEqual(actual.symlinks, [
-                { path: 'symlink-broken', realpath: null },
-                { path: 'symlink1', realpath: 'baz/file2-2.txt' },
-                { path: 'bar/symlink2', realpath: 'file1.js' }
+                { path: ospath('symlink-broken'), realpath: null },
+                { path: ospath('symlink1'), realpath: ospath('baz/file2-2.txt') },
+                { path: ospath('bar/symlink2'), realpath: ospath('file1.js') }
             ]);
         });
 
         it('should resolve symlinks with resolveSymlinks:true relative to basedir', async () => {
             const actual = await run({ basedir: 'bar', resolveSymlinks: true });
 
-            assert.deepEqual(actual.symlinks, [{ path: 'symlink2', realpath: '../file1.js' }]);
+            assert.deepEqual(actual.symlinks, [
+                { path: 'symlink2', realpath: ospath('../file1.js') }
+            ]);
         });
     });
 
@@ -136,7 +138,7 @@ describe('scanFs()', () => {
 
         it('should throw when basedir is a non-exists path', () => {
             return assert.rejects(
-                () => run({ basedir: 'foo/foo/foo/file-with-error.css' }),
+                () => run({ basedir: ospath('foo/foo/foo/file-with-error.css') }),
                 /not a directory/
             );
         });
@@ -146,7 +148,7 @@ describe('scanFs()', () => {
 
             assert.deepEqual(
                 actual.files,
-                expectedFiles.filter((file) => file.path.startsWith('bar/'))
+                expectedFiles.filter((file) => file.path.startsWith('bar' + path.sep))
             );
         });
 
@@ -156,7 +158,9 @@ describe('scanFs()', () => {
             assert.deepEqual(
                 actual.files,
                 expectedFiles.filter(
-                    (file) => file.path.startsWith('bar/') || file.path.startsWith('baz/')
+                    (file) =>
+                        file.path.startsWith('bar' + path.sep) ||
+                        file.path.startsWith('baz' + path.sep)
                 )
             );
         });
@@ -166,7 +170,7 @@ describe('scanFs()', () => {
 
             assert.deepEqual(
                 actual.files,
-                expectedFiles.filter((file) => !file.path.startsWith('bar/'))
+                expectedFiles.filter((file) => !file.path.startsWith('bar' + path.sep))
             );
         });
 
@@ -176,7 +180,9 @@ describe('scanFs()', () => {
             assert.deepEqual(
                 actual.files,
                 expectedFiles.filter(
-                    (file) => !file.path.startsWith('bar/') && !file.path.startsWith('baz/')
+                    (file) =>
+                        !file.path.startsWith('bar' + path.sep) &&
+                        !file.path.startsWith('baz' + path.sep)
                 )
             );
         });
@@ -187,15 +193,6 @@ describe('scanFs()', () => {
             const actual = await run({ rules: {} });
 
             assert.deepEqual(actual.files, expectedFiles);
-        });
-
-        it('rules as object with test option', async () => {
-            const actual = await run({ rules: { test: /\.js$/ } });
-
-            assert.deepEqual(
-                actual.files,
-                expectedFiles.filter((file) => file.path.endsWith('.js'))
-            );
         });
 
         it('rules as object with test option', async () => {
