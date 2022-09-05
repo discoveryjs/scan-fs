@@ -216,7 +216,7 @@ describe('scanFs()', () => {
                                 throw new Error('Parse error');
                             }
 
-                            file.content = content;
+                            file.content = content.replace(/\r\n?/g, '\n');
                         }
                     }
                 ]
