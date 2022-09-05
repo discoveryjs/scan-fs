@@ -54,12 +54,13 @@ describe('scanFs()', () => {
 
         for (const symlink of symlinks) {
             try {
-                if (symlink.realpath) {
-                    fs.symlinkSync(
-                        path.relative(path.dirname(symlink.path), path.resolve(symlink.realpath)),
-                        symlink.path
-                    );
-                }
+                fs.symlinkSync(
+                    path.relative(
+                        path.dirname(symlink.path),
+                        path.resolve(String(symlink.realpath))
+                    ),
+                    symlink.path
+                );
             } catch {}
         }
     });
