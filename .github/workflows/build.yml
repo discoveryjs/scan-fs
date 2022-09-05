@@ -37,6 +37,7 @@ jobs:
 
     unit-tests:
         name: Unit tests
+        runs-on: ${{ matrix.os }}
 
         strategy:
             matrix:
