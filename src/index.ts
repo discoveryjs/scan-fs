@@ -1,19 +1,6 @@
 import { promises as fsPromise } from 'fs';
 import * as path from 'path';
 
-export type ScanErrorReason = 'resolve-symlink' | 'extract';
-export type ScanError = Error & {
-    reason: ScanErrorReason;
-    path: string;
-    toJSON(): { reason: string; path: string; message: string };
-};
-export type Rule = {
-    only?: boolean;
-    test?: RegExp | RegExp[];
-    include?: string | string[];
-    exclude?: string | string[];
-    extract?: ExtractCallback;
-};
 export type Options = {
     posix?: boolean;
     basedir?: string;
@@ -23,17 +10,17 @@ export type Options = {
     resolveSymlinks?: boolean;
     onError?: boolean | ((error: Error) => void);
 };
+export type Rule = {
+    only?: boolean;
+    test?: RegExp | RegExp[];
+    include?: string | string[];
+    exclude?: string | string[];
+    extract?: ExtractCallback;
+};
+
 export type AcceptCallback = (relpath: string) => boolean;
 export type ExtractCallback = (file: File, content: string, rule: MatchRule) => void;
-export type MatchRule = {
-    basedir: string;
-    accept: AcceptCallback;
-    extract: ExtractCallback | null;
-    config: Rule;
-    test: RegExp[] | null;
-    include: string[] | null;
-    exclude: string[] | null;
-};
+
 export type NormalizedOptions = {
     posix: boolean;
     basedir: string;
@@ -43,6 +30,16 @@ export type NormalizedOptions = {
     resolveSymlinks?: boolean;
     onError: (error: Error) => void;
 };
+export type MatchRule = {
+    basedir: string;
+    accept: AcceptCallback;
+    extract: ExtractCallback | null;
+    config: Rule;
+    test: RegExp[] | null;
+    include: string[] | null;
+    exclude: string[] | null;
+};
+
 export type ScanResult = {
     basedir: string;
     files: File[];
@@ -50,6 +47,12 @@ export type ScanResult = {
     errors: ScanError[];
     pathsScanned: number;
     filesTested: number;
+};
+export type ScanErrorReason = 'resolve-symlink' | 'extract';
+export type ScanError = Error & {
+    reason: ScanErrorReason;
+    path: string;
+    toJSON(): { reason: string; path: string; message: string };
 };
 
 export class File {
