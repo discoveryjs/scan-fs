@@ -2,7 +2,11 @@
 
 - Allowed to pass a string value as an options, it's equivalent to `{ basedir: <string> }`
 - Fixed `scanFs()` definition to allow omitting of `options` argument
-- Changed `scanFs()` to return a plain object instead of `File[]` with additional fields
+- Changed a returning value of `scanFs()`:
+
+  - Added `basedir` field
+  - Replaced `stat` object with fields `pathsScanned` and `filesTested`
+  - Return a plain object instead of `File[]` array with additional fields
 
   ```js
   // before
@@ -14,7 +18,6 @@
   console.log(files, symlinks);
   ```
 
-- Replaced `stat` object in `scanFs()` result with fields `pathsScanned` and `filesTested`
 - Added `resolveSymlinks` option to enable symlink resolving, a symlink resolving is disabled by default
 - Rename `NormRule` type into `MatchRule`
 - Added `ScanResult` type to define returning type of `scanFs()`
