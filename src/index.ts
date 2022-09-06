@@ -76,16 +76,18 @@ export class Symlink {
     constructor(public path: string, public realpath: string | null) {}
 }
 
+function scanErrorToJSON(this: ScanError) {
+    return {
+        reason: this.reason,
+        path: this.path,
+        message: String(this)
+    };
+}
+
 function scanError(reason: ScanErrorReason, path: string, error: ScanError) {
     error.reason = reason;
     error.path = path;
-    error.toJSON = () => {
-        return {
-            reason,
-            path,
-            message: String(error)
-        };
-    };
+    error.toJSON = scanErrorToJSON;
 
     return error;
 }
