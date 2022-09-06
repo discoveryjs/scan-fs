@@ -44,6 +44,7 @@ export type NormalizedOptions = {
     onError: (error: Error) => void;
 };
 export type ScanResult = {
+    basedir: string;
     files: File[];
     symlinks: Symlink[];
     errors: ScanError[];
@@ -341,6 +342,7 @@ export async function scanFs(options?: Options | string): Promise<ScanResult> {
     );
 
     return {
+        basedir,
         files,
         symlinks,
         errors,

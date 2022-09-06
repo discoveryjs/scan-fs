@@ -46,13 +46,14 @@ const { files, symlinks, errors } = scanFs({
 
 Main method that scans a file system for files and symlinks, returns an object with the following fields:
 
+- `basedir` - a directory path which is using to make an absolute path for files and symlinks
 - `files` – a list of files that meet a path requirements and match to one of rules if any
 - `symlinks` – a list of symlinks that meet a path requirements
 - `errors` – a list of errors occuried during file processing or symlink resolving
 - `pathsScanned` – a number of paths which was examinated during a scanning
 - `filesTested` – a number of file paths which was examinated by rules
 
-`options` is a string (which transforms into `{ basedir: <string> }`) or an object with all optional fields:
+A value of `options` parameter is a string (which equivalent to `{ basedir: <string> }` object) or an object with all optional fields:
 
 > Note: `options` argument is also optional which equivalent to a call `scanFs({})` or `scanFs({ basedir: process.pwd() })`.
 
@@ -187,6 +188,7 @@ type NormalizedOptions = {
 };
 
 type ScanResult = {
+  basedir: string;
   files: File[];
   symlinks: Symlink[];
   errors: ScanError[];

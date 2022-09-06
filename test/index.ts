@@ -123,6 +123,36 @@ describe('scanFs()', () => {
         });
     });
 
+    describe('basedir', () => {
+        it('should be equal to process.cwd() when not set', async () => {
+            const actual = await run();
+
+            assert.strictEqual(actual.basedir, process.cwd());
+        });
+
+        it('should be resolved to process.cwd() when path is relative', async () => {
+            const actual = await run({ basedir: 'bar' });
+
+            assert.strictEqual(actual.basedir, path.join(process.cwd(), 'bar'));
+        });
+
+        it('should be the same when path is absolute', async () => {
+            const expected = path.join(process.cwd(), 'bar', 'a');
+            const actual = await run({ basedir: expected });
+
+            assert.strictEqual(actual.basedir, expected);
+        });
+
+        it('should be normalized', async () => {
+            const expected = path.join(process.cwd(), 'bar', 'a');
+            const actual = await run({
+                basedir: [process.cwd(), 'bar', 'xxx', '..', 'a'].join(path.sep)
+            });
+
+            assert.strictEqual(actual.basedir, expected);
+        });
+    });
+
     describe('options', () => {
         it('basedir', async () => {
             const actual = await run({ basedir: 'bar' });
