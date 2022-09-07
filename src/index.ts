@@ -2,7 +2,6 @@ import { promises as fsPromise } from 'fs';
 import * as path from 'path';
 
 export type Options = {
-    posix?: boolean;
     basedir?: string;
     include?: string | string[];
     exclude?: string | string[];
@@ -32,7 +31,6 @@ type ExtractBufferRule = BaseRule & {
 export type AcceptCallback = (relpath: string) => boolean;
 
 export type NormalizedOptions = {
-    posix: boolean;
     basedir: string;
     include: string[];
     exclude: string[];
@@ -68,10 +66,12 @@ export type ScanError = Error & {
 
 export class File {
     path: string;
+    posixPath: string;
     errors?: Array<{ message: string; details: any }>;
 
-    constructor(relpath: string) {
+    constructor(relpath: string, posixRelpath: string) {
         this.path = relpath;
+        this.posixPath = posixRelpath;
     }
 
     error(message: string, details: any) {
@@ -87,7 +87,15 @@ export class File {
 }
 
 export class Symlink {
-    constructor(public path: string, public realpath: string | null) {}
+    path: string;
+    posixPath: string;
+    realpath: string | null;
+
+    constructor(relpath: string, posixRelpath: string, relRealpath: string | null) {
+        this.path = relpath;
+        this.posixPath = posixRelpath;
+        this.realpath = relRealpath;
+    }
 }
 
 function scanErrorToJSON(this: ScanError) {
@@ -126,21 +134,23 @@ function composeAccept(first: AcceptCallback | null, second: AcceptCallback): Ac
     return first ? (relpath) => first(relpath) && second(relpath) : second;
 }
 
+function posixNormalize(relpath: string) {
+    return path.posix.resolve('/', relpath).slice(1);
+}
+
+function ensureEndsWithSep(value: string, sep: string) {
+    return value && !value.endsWith(sep) ? value + sep : value;
+}
+
 export function normalizeOptions(options: Options | string = {}): NormalizedOptions {
     if (typeof options === 'string') {
         options = { basedir: options };
     }
 
-    const posix = Boolean(options.posix);
-    const pathSep = posix ? path.posix.sep : path.sep;
     const basedir = path.resolve(options.basedir || process.cwd());
     const resolveSymlinks = Boolean(options.resolveSymlinks);
-    const generalInclude = new Set(
-        ensureArray(options.include).map((dir) => path.resolve(basedir, dir))
-    );
-    const generalExclude = new Set(
-        ensureArray(options.exclude).map((dir) => path.resolve(basedir, dir))
-    );
+    const generalInclude = new Set(ensureArray(options.include).map(posixNormalize));
+    const generalExclude = new Set(ensureArray(options.exclude).map(posixNormalize));
     const onError =
         'onError' in options === false
             ? (err: Error) => console.error('[@discoveryjs/scan-fs]', err)
@@ -166,9 +176,9 @@ export function normalizeOptions(options: Options | string = {}): NormalizedOpti
             }
 
             test = ruleTest;
-            accept = (relpath: string) => {
+            accept = (posixRelpath: string) => {
                 for (const rx of ruleTest) {
-                    if (rx.test(relpath)) {
+                    if (rx.test(posixRelpath)) {
                         return true;
                     }
                 }
@@ -178,51 +188,44 @@ export function normalizeOptions(options: Options | string = {}): NormalizedOpti
         }
 
         if (rule.include) {
-            let ruleInclude = ensureArray(rule.include);
+            const ruleInclude = ensureArray(rule.include);
 
             if (!ruleInclude.every(isString)) {
                 throw new Error('rule.include should be a string or array of strings');
             }
 
-            ruleInclude = ruleInclude.map((dir) => {
-                dir = path.resolve(basedir, dir);
-
-                let cursor = dir;
-                while (cursor !== basedir) {
-                    // FIXME: include should be added only for rules
-                    // with such includes not all the rules
-                    generalInclude.add(cursor);
-                    cursor = path.dirname(cursor);
-                }
-
-                return dir;
-            });
-
-            include = ruleInclude;
-            accept = composeAccept(accept, (relpath) => {
+            include = ruleInclude.map(posixNormalize);
+            accept = composeAccept(accept, (posixRelpath) => {
                 for (const dir of ruleInclude) {
-                    if (relpath == dir || relpath.startsWith(dir + pathSep)) {
+                    if (posixRelpath === dir || posixRelpath.startsWith(dir + '/')) {
                         return true;
                     }
                 }
 
                 return false;
             });
+
+            for (let dir of ruleInclude) {
+                while (dir !== '' && dir !== '.') {
+                    // FIXME: include should be added only for rules
+                    // with such includes not all the rules
+                    generalInclude.add(dir);
+                    dir = path.dirname(dir);
+                }
+            }
         }
 
         if (rule.exclude) {
-            let ruleExclude = ensureArray(rule.exclude);
+            const ruleExclude = ensureArray(rule.exclude);
 
             if (!ruleExclude.every(isString)) {
                 throw new Error('rule.exclude should be a string or array of strings');
             }
 
-            ruleExclude = ruleExclude.map((dir) => path.resolve(basedir, dir));
-
-            exclude = ruleExclude;
-            accept = composeAccept(accept, (relpath) => {
+            exclude = ruleExclude.map(posixNormalize);
+            accept = composeAccept(accept, (posixRelpath) => {
                 for (const dir of ruleExclude) {
-                    if (relpath === dir || relpath.startsWith(dir + pathSep)) {
+                    if (posixRelpath === dir || posixRelpath.startsWith(dir + '/')) {
                         return false;
                     }
                 }
@@ -257,7 +260,6 @@ export function normalizeOptions(options: Options | string = {}): NormalizedOpti
     generalInclude.forEach((dir) => generalExclude.delete(dir));
 
     return {
-        posix,
         basedir,
         include: [...generalInclude],
         exclude: [...generalExclude],
@@ -268,33 +270,33 @@ export function normalizeOptions(options: Options | string = {}): NormalizedOpti
 }
 
 export async function scanFs(options?: Options | string): Promise<ScanResult> {
-    async function collect(basedir: string, absdir: string, reldir: string) {
+    async function collect(basedir: string, reldir: string, posixReldir: string) {
         const tasks = [];
 
-        for (const dirent of await fsPromise.readdir(absdir, { withFileTypes: true })) {
+        for (const dirent of await fsPromise.readdir(basedir + reldir, { withFileTypes: true })) {
             const relpath = reldir + dirent.name;
-            const fullpath = absdir + dirent.name;
+            const posixRelpath = posixReldir + dirent.name;
 
             pathsScanned++;
 
-            if (exclude.includes(fullpath)) {
+            if (exclude.includes(posixRelpath)) {
                 continue;
             }
 
             if (dirent.isDirectory()) {
-                tasks.push(collect(basedir, fullpath + pathSep, relpath + pathSep));
+                tasks.push(collect(basedir, relpath + path.sep, posixRelpath + '/'));
                 continue;
             }
 
             if (dirent.isSymbolicLink()) {
-                const symlink = new Symlink(relpath, null);
+                const symlink = new Symlink(relpath, posixRelpath, null);
 
                 symlinks.push(symlink);
 
                 if (resolveSymlinks) {
                     tasks.push(
                         fsPromise
-                            .realpath(fullpath)
+                            .realpath(basedir + relpath)
                             .then((realpath) => {
                                 symlink.realpath = path.relative(basedir, realpath);
                             })
@@ -312,18 +314,18 @@ export async function scanFs(options?: Options | string): Promise<ScanResult> {
             for (const rule of rules) {
                 const { accept, extract } = rule;
 
-                if (accept && !accept(relpath)) {
+                if (accept && !accept(posixRelpath)) {
                     continue;
                 }
 
-                const file = new File(relpath);
+                const file = new File(relpath, posixRelpath);
 
                 files.push(file);
 
                 if (extract !== null) {
                     tasks.push(
                         fsPromise
-                            .readFile(fullpath, rule.encoding) // TODO: use encoding from rule config
+                            .readFile(basedir + relpath, rule.encoding) // TODO: use encoding from rule config
                             .then((content) => extract(file, content, rule))
                             .catch((error) => {
                                 errors.push((error = scanError('extract', relpath, error)));
@@ -344,22 +346,24 @@ export async function scanFs(options?: Options | string): Promise<ScanResult> {
     const files: File[] = [];
     const symlinks: Symlink[] = [];
     const errors: ScanError[] = [];
-    const { posix, basedir, include, exclude, rules, resolveSymlinks, onError } =
+    const { basedir, include, exclude, rules, resolveSymlinks, onError } =
         normalizeOptions(options);
-    const pathSep = posix ? path.posix.sep : path.sep;
     let pathsScanned = 0;
     let filesTested = 0;
 
     if (!include.length) {
-        include.push(basedir);
+        include.push('');
     } else {
         exclude.push(...include);
     }
 
     await Promise.all(
-        include.map((dir) => {
-            const relpath = path.relative(basedir, dir);
-            return collect(basedir, dir + pathSep, relpath ? relpath + pathSep : '');
+        include.map((posixRelpath) => {
+            return collect(
+                ensureEndsWithSep(basedir, path.sep),
+                ensureEndsWithSep(posixRelpath, '/').replace(/\//g, path.sep),
+                ensureEndsWithSep(posixRelpath, '/')
+            );
         })
     );
 

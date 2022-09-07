@@ -165,7 +165,6 @@ type Rule = {
   encoding?: BufferEncoding | null;
 };
 type Options = {
-  posix?: boolean;
   basedir?: string;
   include?: string | string[];
   exclude?: string | string[];
@@ -187,7 +186,6 @@ type MatchRule = {
   exclude: string[] | null;
 };
 type NormalizedOptions = {
-  posix: boolean;
   basedir: string;
   include: string[];
   exclude: string[];
@@ -207,11 +205,13 @@ type ScanResult = {
 
 type File = {
   path: string;
+  posixPath: string;
   errors?: Array<{ message: string; details: any }>;
   error(message: string, details: any): void;
 };
 type Symlink = {
   path: string;
+  posixPath: string;
   realpath: string | null;
 };
 type ScanError = Error & {

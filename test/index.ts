@@ -18,7 +18,10 @@ const expectedFiles = Array.from(
         'foo.test',
         'foo/foo/foo/file-with-error.css'
     ],
-    (path) => ({ path: ospath(path) })
+    (path) => ({
+        path: ospath(path),
+        posixPath: path
+    })
 );
 
 async function run(...args: Parameters<typeof scanFs>): ReturnType<typeof scanFs> {
@@ -34,7 +37,11 @@ function expectedForDir(expected, dir: string) {
 
     return expected
         .filter((entry) => entry.path.startsWith(pattern))
-        .map((entry) => ({ ...entry, path: entry.path.slice(pattern.length) }));
+        .map((entry) => ({
+            ...entry,
+            path: entry.path.slice(pattern.length),
+            posixPath: entry.posixPath.slice(pattern.length)
+        }));
 }
 
 function expectedFilesForDir(dir: string) {
@@ -47,9 +54,21 @@ describe('scanFs()', () => {
 
         // ensure symlinks are existed
         const symlinks = [
-            { path: ospath('symlink-broken'), realpath: null },
-            { path: ospath('symlink1'), realpath: ospath('baz/file2-2.txt') },
-            { path: ospath('bar/symlink2'), realpath: ospath('file1.js') }
+            {
+                path: ospath('symlink-broken'),
+                posixPath: 'symlink-broken',
+                realpath: null
+            },
+            {
+                path: ospath('symlink1'),
+                posixPath: 'symlink1',
+                realpath: ospath('baz/file2-2.txt')
+            },
+            {
+                path: ospath('bar/symlink2'),
+                posixPath: 'bar/symlink2',
+                realpath: ospath('file1.js')
+            }
         ];
 
         for (const symlink of symlinks) {
@@ -92,25 +111,55 @@ describe('scanFs()', () => {
             const actual = await run();
 
             assert.deepEqual(actual.symlinks, [
-                { path: ospath('symlink-broken'), realpath: null },
-                { path: ospath('symlink1'), realpath: null },
-                { path: ospath('bar/symlink2'), realpath: null }
+                {
+                    path: ospath('symlink-broken'),
+                    posixPath: 'symlink-broken',
+                    realpath: null
+                },
+                {
+                    path: ospath('symlink1'),
+                    posixPath: 'symlink1',
+                    realpath: null
+                },
+                {
+                    path: ospath('bar/symlink2'),
+                    posixPath: 'bar/symlink2',
+                    realpath: null
+                }
             ]);
         });
 
         it('should collect symlinks relative to basedir', async () => {
             const actual = await run({ basedir: 'bar' });
 
-            assert.deepEqual(actual.symlinks, [{ path: 'symlink2', realpath: null }]);
+            assert.deepEqual(actual.symlinks, [
+                {
+                    path: 'symlink2',
+                    posixPath: 'symlink2',
+                    realpath: null
+                }
+            ]);
         });
 
         it('should resolve symlinks with resolveSymlinks:true', async () => {
             const actual = await run({ resolveSymlinks: true });
 
             assert.deepEqual(actual.symlinks, [
-                { path: ospath('symlink-broken'), realpath: null },
-                { path: ospath('symlink1'), realpath: ospath('baz/file2-2.txt') },
-                { path: ospath('bar/symlink2'), realpath: ospath('file1.js') }
+                {
+                    path: ospath('symlink-broken'),
+                    posixPath: 'symlink-broken',
+                    realpath: null
+                },
+                {
+                    path: ospath('symlink1'),
+                    posixPath: 'symlink1',
+                    realpath: ospath('baz/file2-2.txt')
+                },
+                {
+                    path: ospath('bar/symlink2'),
+                    posixPath: 'bar/symlink2',
+                    realpath: ospath('file1.js')
+                }
             ]);
         });
 
@@ -118,7 +167,11 @@ describe('scanFs()', () => {
             const actual = await run({ basedir: 'bar', resolveSymlinks: true });
 
             assert.deepEqual(actual.symlinks, [
-                { path: 'symlink2', realpath: ospath('../file1.js') }
+                {
+                    path: 'symlink2',
+                    posixPath: 'symlink2',
+                    realpath: ospath('../file1.js')
+                }
             ]);
         });
     });
@@ -175,45 +228,49 @@ describe('scanFs()', () => {
         });
 
         it('include as string', async () => {
-            const actual = await run({ include: 'bar' });
+            const actual = await run({ include: 'foo/foo' });
 
             assert.deepEqual(
                 actual.files,
-                expectedFiles.filter((file) => file.path.startsWith('bar' + path.sep))
+                expectedFiles.filter((file) =>
+                    file.path.startsWith('foo' + path.sep + 'foo' + path.sep)
+                )
             );
         });
 
         it('include as array of strings', async () => {
-            const actual = await run({ include: ['bar', 'baz'] });
+            const actual = await run({ include: ['bar', 'foo/foo'] });
 
             assert.deepEqual(
                 actual.files,
                 expectedFiles.filter(
                     (file) =>
                         file.path.startsWith('bar' + path.sep) ||
-                        file.path.startsWith('baz' + path.sep)
+                        file.path.startsWith('foo' + path.sep + 'foo' + path.sep)
                 )
             );
         });
 
         it('exclude as string', async () => {
-            const actual = await run({ exclude: 'bar' });
+            const actual = await run({ exclude: 'foo/foo' });
 
             assert.deepEqual(
                 actual.files,
-                expectedFiles.filter((file) => !file.path.startsWith('bar' + path.sep))
+                expectedFiles.filter(
+                    (file) => !file.path.startsWith('foo' + path.sep + 'foo' + path.sep)
+                )
             );
         });
 
         it('exclude as array of strings', async () => {
-            const actual = await run({ exclude: ['bar', 'baz'] });
+            const actual = await run({ exclude: ['bar', 'foo/foo'] });
 
             assert.deepEqual(
                 actual.files,
                 expectedFiles.filter(
                     (file) =>
                         !file.path.startsWith('bar' + path.sep) &&
-                        !file.path.startsWith('baz' + path.sep)
+                        !file.path.startsWith('foo' + path.sep + 'foo' + path.sep)
                 )
             );
         });

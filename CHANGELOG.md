@@ -3,6 +3,7 @@
 - Allowed to pass a string value as an options, it's equivalent to `{ basedir: <string> }`
 - Fixed `scanFs()` definition to allow omitting of `options` argument
 - Added `encoding` option for `Rule` to specify an encoding for a file content
+- Added `posixPath` field to `File` and `Symlink` interfaces
 - Changed a returning value of `scanFs()`:
 
   - Added `basedir` field
