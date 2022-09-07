@@ -1,6 +1,6 @@
 {
      "name": "@discoveryjs/scan-fs",
-     "version": "3.0.0",
+     "version": "4.0.0-rc.1",
      "description": "An utility for seeking files by file system scanning and optionally populating file info with processing their content",
      "author": "Roman Dvornov <rdvornov@gmail.com>",
      "license": "MIT",

@@ -1,9 +1,12 @@
-## next
+## 4.0.0-rc.1
 
 - Allowed to pass a string value as an options, it's equivalent to `{ basedir: <string> }`
 - Fixed `scanFs()` definition to allow omitting of `options` argument
-- Added `encoding` option for `Rule` to specify an encoding for a file content
+- Added `resolveSymlinks` option to enable symlink resolving, a symlink resolving is disabled by default
 - Added `posixPath` field to `File` and `Symlink` interfaces
+- Added `encoding` option for `Rule` to specify an encoding for a file content
+- Changed rule's `test` option to apply to POSIX paths disregarding of operating system used
+- Changed `include` and `exclude` options to take POSIX paths disregarding of operating system used which are supposed to be relative to `basedir`
 - Changed a returning value of `scanFs()`:
 
   - Added `basedir` field
@@ -20,7 +23,6 @@
   console.log(files, symlinks);
   ```
 
-- Added `resolveSymlinks` option to enable symlink resolving, a symlink resolving is disabled by default
 - Renamed `NormRule` type into `MatchRule`
 - Added `ScanResult` type to define returning type of `scanFs()`
 - Removed output errors to console by default

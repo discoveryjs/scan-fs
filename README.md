@@ -62,21 +62,21 @@ A value of `options` parameter is a string (which equivalent to `{ basedir: <str
   Type: `string`  
   Default: `process.cwd()`
 
-  Base directory to scan. All the paths in a result are relative to `basedir`.
+  Base directory to scan and resolve paths to. All the paths in a result are relative to `basedir`.
 
 - **include**
 
   Type: `string`, `string[]` or `null`  
   Default: `null`
 
-  A list of directories to scan, relative to `basedir`. When used, a scanned file path must start with one of the directories from the list. In case when the same path is used in `include` and `exclude`, `include` has priority over `exclude` (i.e. `include` wins).
+  A list of directories to scan relative to `basedir`. When used, a scanned file path must start with one of the directories from the list. `include` has priority over `exclude` option, i.e. `include` wins when the same path is used in `include` and `exclude` options. Paths should be specified in POSIX disregarding of used operating system.
 
 - **exclude**
 
   Type: `string`, `string[]` or `null`  
   Default: `null`
 
-  A list of directories to avoid scan, relative to `basedir`. When used, a scanned file path must not start with any of the directories from the list.
+  A list of directories to avoid scan relative to `basedir`. When used, a file relative path must not start with any of the directories from the list. Paths should be specified in POSIX disregarding of used operating system.
 
 - **rules**
 
@@ -106,21 +106,21 @@ A **rule** is an object with following fields (all are optional):
   Type: `RegExp`, `RegExp[]` or `null`  
   Default: `null`
 
-  A list of RegExps that applies to relative to `options.basedir` path of file.
+  A list of RegExps that applies to a POSIX path relative to `options.basedir`.
 
 - **include**
 
   Type: `string`, `string[]` or `null`  
   Default: `null`
 
-  The same as for `options.include` but applies on a rule level. When used it also populates `options.include`.
+  The same as for `options.include` but applies on a rule's level. When used it also populates `options.include`.
 
 - **exclude**
 
   Type: `string`, `string[]` or `null`  
   Default: `undefnullined`
 
-  The same as for `options.exclude` but applies on a rule level.
+  The same as for `options.exclude` but applies on a rule's level.
 
 - **extract**
 
