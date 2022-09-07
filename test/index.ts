@@ -284,19 +284,19 @@ describe('scanFs()', () => {
             it('default', async () => {
                 const actual = await runWithEncoding();
 
-                assert.strictEqual(actual, 'hello world\n');
+                assert.strictEqual(actual, 'hello world');
             });
 
             it('utf8', async () => {
                 const actual = await runWithEncoding('utf8');
 
-                assert.strictEqual(actual, 'hello world\n');
+                assert.strictEqual(actual, 'hello world');
             });
 
             it('hex', async () => {
                 const actual = await runWithEncoding('hex');
 
-                assert.strictEqual(actual, '68656c6c6f20776f726c640a');
+                assert.strictEqual(actual, '68656c6c6f20776f726c64');
             });
 
             it('null (Buffer)', async () => {
