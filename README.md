@@ -130,14 +130,21 @@ A **rule** is an object with following fields (all are optional):
   A function that extract some data from a file content. Such a function receives three arguments:
 
   - `file` – an instance of `File`
-  - `content` – a buffer contains content of a file
+  - `content` – a string or `Buffer` (depends on `encoding` option, see below) which contain a content of file
   - `rule` – rule object with normalized options and `basedir` (as a value of `options.basedir`)
 
   On failure, an error is emitting with reason `extract`.
 
+- **encoding**
+
+  Type: `BufferEncoding` or `null`  
+  Default: `'utf8'`
+
+  Specifies an enconding for `content` parameter of `extract` callback when used. Allowed values are the same as for Node.js's `Buffer` (see [Buffers and character encodings](https://nodejs.org/docs/latest-v18.x/api/buffer.html#buffers-and-character-encodings)). When option value is set to `null`, the value of `content` is `Buffer` instead of string
+
 - **only**
 
-  Type: `Boolean`  
+  Type: `boolean`  
   Default: `false`
 
   When `only` is true only single rule applies. If several rules have truthy value for `only`, then first rule wins. The option is useful for debugging.
@@ -155,6 +162,7 @@ type Rule = {
   include?: string | string[];
   exclude?: string | string[];
   extract?: ExtractCallback;
+  encoding?: BufferEncoding | null;
 };
 type Options = {
   posix?: boolean;
@@ -167,11 +175,12 @@ type Options = {
 };
 
 type AcceptCallback = (relpath: string) => boolean;
-type ExtractCallback = (file: File, content: string, rule: MatchRule) => void;
+type ExtractCallback = (file: File, content: string | Buffer, rule: MatchRule) => void;
 type MatchRule = {
   basedir: string;
   accept: AcceptCallback;
   extract: ExtractCallback | null;
+  encoding: BufferEncoding | null;
   config: Rule;
   test: RegExp[] | null;
   include: string[] | null;

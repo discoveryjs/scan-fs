@@ -1,7 +1,7 @@
 import assert from 'assert';
 import path from 'path';
 import fs from 'fs';
-import { scanFs, File } from '@discoveryjs/scan-fs';
+import { scanFs, File, Options } from '@discoveryjs/scan-fs';
 
 const basedir = path.join(process.cwd(), 'test-fixtures');
 const ospath = (str: string) => str.replace(/\//g, path.sep);
@@ -263,6 +263,47 @@ describe('scanFs()', () => {
                     )
             );
             assert.deepEqual(actual.errors[0].message, 'Parse error');
+        });
+
+        describe('encoding', () => {
+            function runWithEncoding(encoding?: BufferEncoding | null) {
+                const rules: Options = {
+                    test: /^bar\.test$/,
+                    extract(file, content) {
+                        file.content = content;
+                    }
+                };
+
+                if (encoding !== undefined) {
+                    rules.encoding = encoding;
+                }
+
+                return run({ rules }).then(({ files }) => files[0].content);
+            }
+
+            it('default', async () => {
+                const actual = await runWithEncoding();
+
+                assert.strictEqual(actual, 'hello world\n');
+            });
+
+            it('utf8', async () => {
+                const actual = await runWithEncoding('utf8');
+
+                assert.strictEqual(actual, 'hello world\n');
+            });
+
+            it('hex', async () => {
+                const actual = await runWithEncoding('hex');
+
+                assert.strictEqual(actual, '68656c6c6f20776f726c640a');
+            });
+
+            it('null (Buffer)', async () => {
+                const actual = await runWithEncoding(null);
+
+                assert(Buffer.isBuffer(actual), 'file content should be a Buffer');
+            });
         });
     });
 });

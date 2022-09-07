@@ -10,16 +10,26 @@ export type Options = {
     resolveSymlinks?: boolean;
     onError?: boolean | ((error: Error) => void);
 };
-export type Rule = {
+
+export type Rule = ExtractStringRule | ExtractBufferRule;
+export type ExtractStringCallback = (file: File, content: string, rule: MatchRule) => void;
+export type ExtractBufferCallback = (file: File, content: Buffer, rule: MatchRule) => void;
+type BaseRule = {
     only?: boolean;
     test?: RegExp | RegExp[];
     include?: string | string[];
     exclude?: string | string[];
-    extract?: ExtractCallback;
+};
+type ExtractStringRule = BaseRule & {
+    encoding?: BufferEncoding;
+    extract?: ExtractStringCallback;
+};
+type ExtractBufferRule = BaseRule & {
+    encoding: null;
+    extract: ExtractBufferCallback;
 };
 
 export type AcceptCallback = (relpath: string) => boolean;
-export type ExtractCallback = (file: File, content: string, rule: MatchRule) => void;
 
 export type NormalizedOptions = {
     posix: boolean;
@@ -33,7 +43,8 @@ export type NormalizedOptions = {
 export type MatchRule = {
     basedir: string;
     accept: AcceptCallback;
-    extract: ExtractCallback | null;
+    encoding: Rule['encoding'];
+    extract: ((file: File, content: string | Buffer, rule: MatchRule) => void) | null;
     config: Rule;
     test: RegExp[] | null;
     include: string[] | null;
@@ -143,6 +154,7 @@ export function normalizeOptions(options: Options | string = {}): NormalizedOpti
         let test: RegExp[] | null = null;
         let include: string[] | null = null;
         let exclude: string[] | null = null;
+        let encoding = rule.encoding;
         let extract = null;
         let accept = null;
 
@@ -225,10 +237,15 @@ export function normalizeOptions(options: Options | string = {}): NormalizedOpti
             throw new Error('rule.extract should be a function');
         }
 
+        if (typeof encoding !== 'string' && encoding !== null) {
+            encoding = 'utf8';
+        }
+
         return Object.freeze({
             basedir,
             accept,
             extract,
+            encoding,
             config: rule,
             test,
             include,
@@ -306,7 +323,7 @@ export async function scanFs(options?: Options | string): Promise<ScanResult> {
                 if (extract !== null) {
                     tasks.push(
                         fsPromise
-                            .readFile(fullpath, 'utf8') // TODO: use encoding from rule config
+                            .readFile(fullpath, rule.encoding) // TODO: use encoding from rule config
                             .then((content) => extract(file, content, rule))
                             .catch((error) => {
                                 errors.push((error = scanError('extract', relpath, error)));
