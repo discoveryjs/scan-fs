@@ -151,12 +151,7 @@ export function normalizeOptions(options: Options | string = {}): NormalizedOpti
     const resolveSymlinks = Boolean(options.resolveSymlinks);
     const generalInclude = new Set(ensureArray(options.include).map(posixNormalize));
     const generalExclude = new Set(ensureArray(options.exclude).map(posixNormalize));
-    const onError =
-        'onError' in options === false
-            ? (err: Error) => console.error('[@discoveryjs/scan-fs]', err)
-            : typeof options.onError === 'function'
-            ? options.onError
-            : () => {};
+    const onError = typeof options.onError === 'function' ? options.onError : () => {};
 
     const rawRules = ensureArray(options.rules).filter(Boolean);
     const onlyRule = rawRules.find((rule) => rule.only);
@@ -325,7 +320,7 @@ export async function scanFs(options?: Options | string): Promise<ScanResult> {
                 if (extract !== null) {
                     tasks.push(
                         fsPromise
-                            .readFile(basedir + relpath, rule.encoding) // TODO: use encoding from rule config
+                            .readFile(basedir + relpath, rule.encoding)
                             .then((content) => extract(file, content, rule))
                             .catch((error) => {
                                 errors.push((error = scanError('extract', relpath, error)));

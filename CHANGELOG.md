@@ -21,8 +21,9 @@
   ```
 
 - Added `resolveSymlinks` option to enable symlink resolving, a symlink resolving is disabled by default
-- Rename `NormRule` type into `MatchRule`
+- Renamed `NormRule` type into `MatchRule`
 - Added `ScanResult` type to define returning type of `scanFs()`
+- Removed output errors to console by default
 
 ## 3.0.0 (2022-06-09)
 

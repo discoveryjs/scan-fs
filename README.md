@@ -95,9 +95,9 @@ A value of `options` parameter is a string (which equivalent to `{ basedir: <str
 - **onError**
 
   Type: `function(error)` or `null`  
-  Default: `error => console.error('...', error)`
+  Default: `null`
 
-  A handler that is used when an error is occuring during FS scan or file processing. By default errors output in `stderr`, that's can be disabled by passing another function or a falsy value. Errors also can be reached by `errors` field of a result (i.e. `files.errors`).
+  A handler that is used when an error is occuring during FS scan or file processing. By default nothing happens, but adds to errors `array` which can be reached by `errors` field of a result.
 
 A **rule** is an object with following fields (all are optional):
 
