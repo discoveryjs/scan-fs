@@ -8,21 +8,18 @@
 - Changed rule's `test` option to apply to POSIX paths disregarding of operating system used
 - Changed `include` and `exclude` options to take POSIX paths disregarding of operating system used which are supposed to be relative to `basedir`
 - Changed a returning value of `scanFs()`:
-
   - Added `basedir` field
   - Replaced `stat` object with fields `pathsScanned` and `filesTested`
   - Return a plain object instead of `File[]` array with additional fields
-
-  ```js
-  // before
-  const files = await scanFs(...)
-  console.log(files, files.symlinks);
-
-  // after
-  const { files, symlinks } = await scanFs(...)
-  console.log(files, symlinks);
-  ```
-
+      ```js
+      // before
+      const files = await scanFs(...)
+      console.log(files, files.symlinks);
+    
+      // after
+      const { files, symlinks } = await scanFs(...)
+      console.log(files, symlinks);
+      ```
 - Renamed `NormRule` type into `MatchRule`
 - Added `ScanResult` type to define returning type of `scanFs()`
 - Removed output errors to console by default
