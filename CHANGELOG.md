@@ -1,4 +1,4 @@
-## 4.0.0-rc.1
+## 4.0.0 (2024-03-15)
 
 - Allowed to pass a string value as an options, it's equivalent to `{ basedir: <string> }`
 - Fixed `scanFs()` definition to allow omitting of `options` argument
@@ -15,7 +15,7 @@
       // before
       const files = await scanFs(...)
       console.log(files, files.symlinks);
-    
+
       // after
       const { files, symlinks } = await scanFs(...)
       console.log(files, symlinks);
@@ -23,6 +23,10 @@
 - Renamed `NormRule` type into `MatchRule`
 - Added `ScanResult` type to define returning type of `scanFs()`
 - Removed output errors to console by default
+
+## 4.0.0-rc.1 (2022-09-08)
+
+See changes in [4.0.0](#400-2024-03-15)
 
 ## 3.0.0 (2022-06-09)
 
